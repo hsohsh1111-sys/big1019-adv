@@ -1,0 +1,21 @@
+# SonarQube Community Build (무료) 로컬 실행
+#   docker compose up -d   →  http://localhost:9000  (초기 계정 admin / admin, 로그인 후 비밀번호 변경)
+#   종료: docker compose down      (데이터까지 삭제: docker compose down -v)
+# 메모리를 많이 사용합니다 (2GB 이상 권장).
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

@@ -1,0 +1,26 @@
+# p01 생성형AI 활용개발
+google-genai
+openai
+langchain-core
+langchain-google-genai
+fastapi
+uvicorn[standard]
+
+# p02 RPA 고급개발 연계자동화
+requests
+beautifulsoup4
+pandas
+openpyxl
+playwright
+python-docx
+aiosmtpd
+
+# p04 MLOps 데이터엔지니어링
+scikit-learn
+numpy
+joblib
+mlflow
+fastapi
+httpx
+pytest
+

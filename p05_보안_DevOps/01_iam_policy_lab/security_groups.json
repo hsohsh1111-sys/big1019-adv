@@ -1,0 +1,31 @@
+{
+  "SecurityGroups": [
+    {
+      "GroupId": "sg-0alb", "GroupName": "web-alb",
+      "IpPermissions": [
+        {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]},
+        {"IpProtocol": "tcp", "FromPort": 80, "ToPort": 80, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}
+      ]
+    },
+    {
+      "GroupId": "sg-0app", "GroupName": "app-server",
+      "IpPermissions": [
+        {"IpProtocol": "tcp", "FromPort": 8000, "ToPort": 8000, "UserIdGroupPairs": [{"GroupId": "sg-0alb"}]},
+        {"IpProtocol": "tcp", "FromPort": 22, "ToPort": 22, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}
+      ]
+    },
+    {
+      "GroupId": "sg-0db", "GroupName": "database",
+      "IpPermissions": [
+        {"IpProtocol": "tcp", "FromPort": 3306, "ToPort": 3306, "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}
+      ]
+    },
+    {
+      "GroupId": "sg-0tmp", "GroupName": "temp-debug",
+      "IpPermissions": [
+        {"IpProtocol": "-1", "IpRanges": [{"CidrIp": "0.0.0.0/0"}]},
+        {"IpProtocol": "tcp", "FromPort": 22, "ToPort": 22, "IpRanges": [{"CidrIp": "203.0.113.25/32"}]}
+      ]
+    }
+  ]
+}

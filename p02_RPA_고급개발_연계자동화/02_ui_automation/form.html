@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>교육 신청 시스템 (연습용)</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 640px; margin: 30px auto; color: #222; }
+  label { display: block; margin-top: 10px; font-weight: bold; }
+  input, select { width: 100%; padding: 6px; box-sizing: border-box; }
+  button { margin-top: 14px; padding: 8px 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #999; padding: 4px 8px; }
+  th { background: #dce6f2; }
+  #msg { margin-top: 10px; font-weight: bold; }
+  .ok { color: green; } .err { color: crimson; }
+</style>
+</head>
+<body>
+<h1>교육 신청 시스템</h1>
+<p>사람이 엑셀을 보며 한 명씩 입력하던 사내 시스템이라고 가정합니다.</p>
+
+<form id="apply">
+  <label for="name">이름</label>
+  <input id="name" name="name" required>
+  <label for="email">이메일</label>
+  <input id="email" name="email" type="email" required>
+  <label for="course">과정</label>
+  <select id="course" name="course">
+    <option value="">선택하세요</option>
+    <option>생성형 AI</option>
+    <option>RPA</option>
+    <option>MLOps</option>
+  </select>
+  <label><input id="agree" type="checkbox" style="width:auto"> 개인정보 수집 동의</label>
+  <button type="submit">신청</button>
+</form>
+<div id="msg"></div>
+
+<table>
+  <thead><tr><th>번호</th><th>이름</th><th>이메일</th><th>과정</th><th>접수 시각</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script>
+let count = 0;
+document.getElementById('apply').addEventListener('submit', e => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  const v = id => document.getElementById(id).value.trim();
+  if (!v('course')) { msg.className = 'err'; msg.textContent = '과정을 선택하세요'; return; }
+  if (!document.getElementById('agree').checked) { msg.className = 'err'; msg.textContent = '동의가 필요합니다'; return; }
+  // 실제 시스템처럼 처리 지연(0.3~1초)을 흉내 낸다 → 자동화는 '기다리기'가 필요
+  msg.className = ''; msg.textContent = '처리 중...';
+  setTimeout(() => {
+    count += 1;
+    const tr = document.createElement('tr');
+    tr.className = 'done';
+    [count, v('name'), v('email'), v('course'), new Date().toLocaleTimeString()].forEach(t => {
+      const td = document.createElement('td'); td.textContent = t; tr.appendChild(td);
+    });
+    document.getElementById('rows').appendChild(tr);
+    msg.className = 'ok'; msg.textContent = `${v('name')}님 신청 완료 (접수번호 ${count})`;
+    e.target.reset();
+  }, 300 + Math.random() * 700);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# docker compose up --build   →  http://localhost:8000
+services:
+  app:
+    build: .
+    image: visit-counter:v1
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0   # 서비스 이름 'redis'가 곧 호스트 이름
+      GREETING: "Docker Compose에서 실행 중"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data                # 컨테이너를 지워도 방문자 수 유지
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+    # ports를 열지 않음 → 외부에서 직접 접근 불가, app만 내부 네트워크로 접근
+
+volumes:
+  redis_data:

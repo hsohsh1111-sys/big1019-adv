@@ -1,0 +1,73 @@
+# 사용법: 이 파일을 저장소 루트의 .github/workflows/ci-cd.yml 로 복사
+# 흐름: lint → test → Docker build → 취약점 스캔 → (main 브랜치만) GHCR push → 운영 배포(승인 필요)
+name: CI-CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:            # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: read                # 기본 권한은 최소로
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/cart-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]   # 여러 버전 동시 테스트
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -r requirements.txt pytest httpx ruff
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: pytest -q
+
+  build:
+    needs: test                 # 테스트 통과해야 실행
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write           # GHCR에 이미지 push 권한 (이 Job에만)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lowercase image name   # Docker 이미지 이름은 소문자만 허용 (저장소 이름에 대문자가 있을 수 있음)
+        run: echo "IMAGE=${IMAGE,,}" >> "$GITHUB_ENV"
+      - name: Build image
+        run: docker build -t $IMAGE:${{ github.sha }} .
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"          # 심각한 취약점이 있으면 실패
+          ignore-unfixed: true
+      - name: Push to GHCR (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production     # Settings → Environments 에서 승인자(Required reviewers) 지정 → 승인 후 실행
+    steps:
+      - name: Deploy (예시)
+        run: |
+          echo "배포할 이미지: $IMAGE:${{ github.sha }}"
+          # 예) EC2에 SSH로 접속해 새 이미지 실행 (secrets에 EC2_HOST, EC2_SSH_KEY 등록 필요)
+          # 예) AWS는 장기 키 대신 OIDC(aws-actions/configure-aws-credentials)로 임시 자격 증명 사용
+          # 예) Render·Railway는 Deploy Hook URL 호출: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

@@ -1,0 +1,20 @@
+# 설정(ConfigMap)과 비밀 값(Secret)을 코드·이미지와 분리
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: edu
+data:
+  GREETING: "쿠버네티스에서 실행 중"
+  REDIS_URL: "redis://redis:6379/0"
+---
+# Secret은 base64 인코딩일 뿐 암호화가 아닙니다. 실무에서는 Git에 올리지 말고
+# External Secrets, Sealed Secrets, AWS Secrets Manager 등을 사용하세요.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+  namespace: edu
+type: Opaque
+stringData:
+  API_KEY: "demo-only-not-a-real-key"

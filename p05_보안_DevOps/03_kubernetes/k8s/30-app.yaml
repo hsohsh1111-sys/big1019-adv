@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: visit-counter
+  namespace: edu
+spec:
+  replicas: 3                       # 항상 Pod 3개 유지 (선언형)
+  selector:
+    matchLabels: { app: visit-counter }
+  strategy:
+    type: RollingUpdate             # 무중단 업데이트: 새 Pod를 띄우고 옛 Pod를 하나씩 교체
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  template:
+    metadata:
+      labels: { app: visit-counter }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: app
+          image: visit-counter:v1   # kind load docker-image 로 클러스터에 넣은 이미지
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: app-secret }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          readinessProbe:           # 준비되기 전에는 트래픽을 보내지 않음
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:            # 응답이 없으면 컨테이너 재시작
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: visit-counter
+  namespace: edu
+spec:
+  type: NodePort
+  selector: { app: visit-counter }
+  ports:
+    - port: 80
+      targetPort: 8000
+      nodePort: 30080               # kind-config.yaml 에서 localhost:30080 으로 연결

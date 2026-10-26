@@ -1,0 +1,19 @@
+# CPU 사용률 60%를 넘으면 Pod를 최대 6개까지 자동 확장
+# (kind에서는 metrics-server 설치 필요: README 참고)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: visit-counter
+  namespace: edu
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: visit-counter
+  minReplicas: 3
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 60 }

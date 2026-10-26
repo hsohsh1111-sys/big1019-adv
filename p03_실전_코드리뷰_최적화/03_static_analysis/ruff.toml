@@ -1,0 +1,16 @@
+# Ruff 설정: 어떤 규칙 묶음을 검사할지 정한다. (https://docs.astral.sh/ruff/rules/)
+line-length = 100
+
+[lint]
+select = [
+  "E", "W",  # pycodestyle: PEP 8 스타일
+  "F",       # Pyflakes: 안 쓰는 import·변수, 정의 안 된 이름
+  "B",       # flake8-bugbear: 버그가 되기 쉬운 패턴
+  "S",       # flake8-bandit: 보안 취약점 (하드코딩 비밀번호, SQL 인젝션 등)
+  "C90",     # mccabe: 순환 복잡도
+  "SIM",     # 단순화 가능한 코드
+  "UP",      # 최신 파이썬 문법으로
+]
+
+[lint.mccabe]
+max-complexity = 6

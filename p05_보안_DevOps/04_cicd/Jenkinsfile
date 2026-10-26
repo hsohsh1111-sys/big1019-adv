@@ -1,0 +1,54 @@
+// Jenkins 선언형 파이프라인 — GitHub Actions의 ci-cd.yml과 같은 흐름
+pipeline {
+  agent any
+
+  environment {
+    IMAGE = "cart-api"
+  }
+
+  options {
+    timeout(time: 20, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Lint & Test') {
+      steps {
+        sh '''
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt pytest httpx ruff
+          ruff check .
+          pytest -q --junitxml=test-results.xml
+        '''
+      }
+      post {
+        always { junit 'test-results.xml' }   // 테스트 결과를 Jenkins 화면에 표시
+      }
+    }
+
+    stage('Build Image') {
+      steps { sh 'docker build -t ${IMAGE}:${BUILD_NUMBER} .' }
+    }
+
+    stage('Deploy') {
+      when { branch 'main' }
+      steps {
+        input message: '운영 서버에 배포할까요?', ok: '배포'
+        // 비밀 값은 Jenkins Credentials에 저장하고 withCredentials로 꺼내 쓴다
+        withCredentials([string(credentialsId: 'deploy-token', variable: 'DEPLOY_TOKEN')]) {
+          sh 'echo "deploy ${IMAGE}:${BUILD_NUMBER}"  # 실제 배포 스크립트 위치'
+        }
+      }
+    }
+  }
+
+  post {
+    success { echo '✅ 파이프라인 성공' }
+    failure { echo '❌ 파이프라인 실패 — 로그를 확인하세요' }
+  }
+}

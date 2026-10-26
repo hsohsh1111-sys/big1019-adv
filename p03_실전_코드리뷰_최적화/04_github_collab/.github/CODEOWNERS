@@ -1,0 +1,7 @@
+# 경로별 자동 리뷰어 지정 (아이디는 팀원 GitHub 계정으로 바꾸세요)
+# 아래로 갈수록 우선순위가 높습니다.
+*                 @team-leader
+/frontend/        @frontend-dev
+/backend/         @backend-dev
+/rpa/             @rpa-dev
+*.md              @team-leader @frontend-dev

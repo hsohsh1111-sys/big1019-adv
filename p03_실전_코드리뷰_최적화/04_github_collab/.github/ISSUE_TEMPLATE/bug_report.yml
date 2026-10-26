@@ -1,0 +1,33 @@
+name: 버그 신고
+description: 잘못 동작하는 기능을 알려주세요
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 어떤 문제가 있나요?
+      placeholder: 장바구니에서 수량을 0으로 바꾸면 금액이 음수로 표시됩니다.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 결과
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 심각도
+      options: ["낮음", "보통", "높음", "치명적"]
+    validations:
+      required: true

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>AI 메모장</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 760px; margin: 30px auto; padding: 0 16px; color: #222; }
+  textarea, input { width: 100%; box-sizing: border-box; padding: 8px; font-size: 14px; }
+  button { padding: 8px 16px; margin-top: 6px; cursor: pointer; }
+  .note { border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+  .summary { color: #2e5597; font-weight: bold; }
+  .tag { display: inline-block; background: #dce6f2; border-radius: 10px; padding: 1px 8px; margin-right: 4px; font-size: 12px; cursor: pointer; }
+  .meta { color: #888; font-size: 12px; }
+  #answer { background: #f6f6f6; padding: 10px; border-radius: 6px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>AI 메모장</h1>
+
+<h3>새 메모</h3>
+<textarea id="content" rows="4" placeholder="메모를 입력하면 AI가 요약과 태그를 붙여 저장합니다."></textarea>
+<button onclick="save()">저장</button>
+
+<h3>메모에게 질문하기 (RAG)</h3>
+<input id="question" placeholder="예: 회의 일정이 언제야?">
+<button onclick="ask()">질문</button>
+<p id="answer"></p>
+
+<h3>메모 목록 <small id="filter"></small></h3>
+<div id="list"></div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function load(tag = '') {
+  const res = await fetch('/notes' + (tag ? '?tag=' + encodeURIComponent(tag) : ''));
+  const notes = await res.json();
+  document.getElementById('filter').innerHTML = tag ? `#${esc(tag)} <a href="#" onclick="load()">전체 보기</a>` : '';
+  document.getElementById('list').innerHTML = notes.map(n => `
+    <div class="note">
+      <div class="summary">${esc(n.summary)}</div>
+      <div>${esc(n.content)}</div>
+      <div>${(n.tags || '').split(',').filter(Boolean).map(t => `<span class="tag" data-tag="${esc(t)}" onclick="load(this.dataset.tag)">#${esc(t)}</span>`).join('')}</div>
+      <div class="meta">#${n.id} · ${n.created_at} · ${n.ai_source} <a href="#" onclick="del(${n.id})">삭제</a></div>
+    </div>`).join('') || '<p>메모가 없습니다.</p>';
+}
+
+async function save() {
+  const content = document.getElementById('content').value.trim();
+  if (!content) return alert('내용을 입력하세요');
+  const res = await fetch('/notes', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({content})});
+  if (!res.ok) return alert('저장 실패: ' + res.status);
+  document.getElementById('content').value = '';
+  load();
+}
+
+async function del(id) { await fetch('/notes/' + id, {method: 'DELETE'}); load(); }
+
+async function ask() {
+  const question = document.getElementById('question').value.trim();
+  if (!question) return;
+  const res = await fetch('/ask', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question})});
+  const data = await res.json();
+  document.getElementById('answer').textContent = data.answer + (data.sources.length ? `\n(근거 메모: #${data.sources.join(', #')})` : '');
+}
+
+load();
+</script>
+</body>
+</html>
