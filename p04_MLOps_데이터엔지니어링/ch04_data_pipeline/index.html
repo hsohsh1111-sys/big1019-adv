@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>날씨 ETL 파이프라인</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 980px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .flow { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin: 12px 0; }
+  .stage { flex: 1; min-width: 150px; border: 2px solid #ccc; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .stage h4 { margin: 0 0 4px; }
+  .stage.done { border-color: #188038; background: #e6f4ea; }
+  .stage.fail { border-color: #d93025; background: #fce8e6; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: right; }
+  th { background: #dce6f2; } td:first-child { text-align: left; }
+  .range { position: relative; height: 14px; background: #f1f3f4; border-radius: 7px; min-width: 200px; }
+  .range span { position: absolute; height: 14px; border-radius: 7px; background: linear-gradient(90deg, #4a90e2, #e8710a); }
+  button, input { padding: 7px 12px; font-size: 14px; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>날씨 데이터 ETL 파이프라인 <small class="muted">Open-Meteo API → 정제 → SQLite</small></h1>
+
+<p>
+  최근 <input id="days" type="number" value="7" min="1" max="30" style="width:60px">일
+  <label><input type="checkbox" id="offline"> 오프라인(샘플 데이터)</label>
+  <label><input type="checkbox" id="clean"> 오염 데이터 주입 안 함</label>
+  <button onclick="run()">파이프라인 실행</button>
+  <span id="status" class="muted"></span>
+</p>
+
+<div class="flow">
+  <div class="stage" id="E"><h4>① Extract 수집</h4><div id="Et">-</div></div>
+  <div class="stage" id="T"><h4>② Transform 정제</h4><div id="Tt">-</div></div>
+  <div class="stage" id="V"><h4>③ Validate 검증</h4><div id="Vt">-</div></div>
+  <div class="stage" id="L"><h4>④ Load 적재</h4><div id="Lt">-</div></div>
+</div>
+
+<h3>서울 일별 날씨 리포트 <small class="muted">weather.db 에서 SQL로 집계</small></h3>
+<table>
+  <thead><tr><th>날짜</th><th>최저</th><th>최고</th><th>평균</th><th>습도(%)</th><th>강수(mm)</th><th style="text-align:left">기온 범위 (-10℃ ~ 40℃)</th></tr></thead>
+  <tbody id="daily"></tbody>
+</table>
+
+<script>
+const $ = id => document.getElementById(id);
+const pct = t => (t + 10) / 50 * 100;   // -10℃ → 0%, 40℃ → 100%
+
+async function run() {
+  ['E', 'T', 'V', 'L'].forEach(s => $(s).className = 'stage');
+  $('status').textContent = '실행 중...';
+  const res = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days: Number($('days').value), offline: $('offline').checked, clean_only: $('clean').checked }) });
+  const r = await res.json();
+  if (!res.ok) {
+    $('V').className = 'stage fail'; $('Vt').textContent = typeof r.detail === 'string' ? r.detail : JSON.stringify(r.detail);
+    return $('status').textContent = '실패';
+  }
+  $('status').textContent = `완료 (${r.seconds}초)`;
+  $('Et').textContent = `${r.source}: ${r.extracted}행`;
+  $('Tt').innerHTML = Object.entries(r.transform).map(([k, v]) => `${k}: <b>${v}</b>`).join('<br>');
+  $('Vt').textContent = '✔ 통과 (중복 없음, 결측 없음, 기온 -40~50℃)';
+  $('Lt').textContent = `${r.loaded}행 UPSERT → 테이블 누적 ${r.total}행`;
+  ['E', 'T', 'V', 'L'].forEach(s => $(s).className = 'stage done');
+
+  $('daily').innerHTML = r.daily.map(d => `<tr><td>${d['날짜']}</td><td>${d['최저기온']}</td><td>${d['최고기온']}</td><td>${d['평균기온']}</td>
+    <td>${d['평균습도']}</td><td>${d['강수량']}</td>
+    <td><div class="range"><span style="left:${pct(d['최저기온'])}%; width:${pct(d['최고기온']) - pct(d['최저기온'])}%"></span></div></td></tr>`).join('');
+}
+</script>
+</body>
+</html>

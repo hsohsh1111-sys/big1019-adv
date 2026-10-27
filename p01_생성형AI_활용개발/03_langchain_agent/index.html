@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>LangChain 에이전트 & 파이프라인</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 820px; margin: 30px auto; padding: 0 16px; color: #222; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+  .row { display: flex; gap: 6px; }
+  input, textarea { width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; }
+  button { padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+  .ex { font-size: 12px; padding: 4px 8px; margin: 4px 2px; }
+  .step { border-left: 4px solid #999; padding: 6px 10px; margin: 6px 0; background: #fafafa; }
+  .tool { border-color: #f9a825; } .answer { border-color: #2e7d32; background: #e8f5e9; }
+  .flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .box { border: 1px solid #2e5597; border-radius: 6px; padding: 6px 10px; background: #eef3fb; white-space: pre-wrap; }
+  .muted { color: #888; font-size: 13px; }
+  code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>LangChain 에이전트 & 파이프라인</h1>
+
+<section>
+  <h2>① 도구를 쓰는 에이전트 <small class="muted" id="agentModel"></small></h2>
+  <p class="muted">LLM이 <code>calculator</code>, <code>get_today</code> 중 필요한 도구를 골라 호출하고, 결과를 보고 최종 답변을 만듭니다.</p>
+  <div class="row">
+    <input id="question" value="오늘 날짜와 12345 * 678 의 결과를 알려줘">
+    <button onclick="runAgent()">실행</button>
+  </div>
+  <div>
+    <button class="ex" onclick="ask('(3 + 4) * 2.5 는?')">(3 + 4) * 2.5 는?</button>
+    <button class="ex" onclick="ask('오늘 무슨 요일이야?')">오늘 무슨 요일이야?</button>
+    <button class="ex" onclick="ask('10 / 0 계산해줘')">10 / 0 (오류 처리)</button>
+    <button class="ex" onclick="ask('안녕?')">안녕? (도구 불필요)</button>
+  </div>
+  <div id="steps"></div>
+</section>
+
+<section>
+  <h2>② LCEL 파이프라인 <small class="muted" id="pipeModel"></small></h2>
+  <div class="flow"><span class="box">기사</span>→<span class="box">요약 체인</span>→<span class="box">제목 체인</span>→<span class="box">{title, summary}</span></div>
+  <textarea id="article" rows="6"></textarea>
+  <button onclick="runPipeline()">요약 & 제목 만들기</button>
+  <h3 id="title"></h3>
+  <div id="summary" class="box" style="display:none"></div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status));
+
+function ask(q) { $('question').value = q; runAgent(); }
+
+async function runAgent() {
+  $('steps').textContent = '실행 중...';
+  const t = await post('/api/agent', { question: $('question').value });
+  $('agentModel').textContent = t.model;
+  $('steps').innerHTML = '';
+  t.steps.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'step ' + s.type;
+    div.textContent = s.type === 'tool'
+      ? `[${s.step}단계] 🔧 도구 호출 ${s.name}(${JSON.stringify(s.args)}) → ${s.result}`
+      : `[${s.step}단계] ✅ 최종 답변: ${s.content}`;
+    $('steps').appendChild(div);
+  });
+}
+
+async function runPipeline() {
+  $('title').textContent = '실행 중...';
+  const r = await post('/api/pipeline', { article: $('article').value });
+  $('pipeModel').textContent = r.model;
+  $('title').textContent = '■ ' + r.title;
+  $('summary').style.display = 'block';
+  $('summary').textContent = r.summary;
+}
+
+fetch('/api/sample').then(r => r.json()).then(d => $('article').value = d.article);
+</script>
+</body>
+</html>

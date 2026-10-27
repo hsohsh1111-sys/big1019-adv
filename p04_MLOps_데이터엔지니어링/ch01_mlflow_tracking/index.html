@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>MLflow 실험 추적</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 980px; margin: 30px auto; padding: 0 16px; color: #222; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+  th { background: #dce6f2; }
+  tr.best { background: #e6f4ea; font-weight: bold; }
+  button, select, input { padding: 7px 12px; font-size: 14px; }
+  .bar { background: #4a7bd0; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; white-space: pre-wrap; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>MLflow 실험 추적 <small class="muted">와인 분류 · LogisticRegression</small></h1>
+<p class="muted">MLflow 화면도 함께 열어 보세요: <code>mlflow ui --backend-store-uri sqlite:///mlflow.db</code> → <a href="http://127.0.0.1:5000" target="_blank">http://127.0.0.1:5000</a></p>
+
+<section>
+  <h2>① 실험 실행 (run 1개 기록)</h2>
+  스케일링 <select id="scale"><option value="true">사용 (StandardScaler)</option><option value="false">사용 안 함</option></select>
+  C <select id="C"><option>0.001</option><option>0.01</option><option>0.1</option><option selected>1</option><option>10</option></select>
+  <button onclick="trainOne()">학습 & 기록</button>
+  <span id="status" class="muted"></span>
+</section>
+
+<section>
+  <h2>② 실험 비교 <small class="muted">f1 높은 순 (MLflow DB에서 조회)</small> <button onclick="loadRuns()">새로고침</button></h2>
+  <table><thead><tr><th>#</th><th>run 이름</th><th>scaling</th><th>C</th><th>accuracy</th><th>f1_macro</th></tr></thead><tbody id="runs"></tbody></table>
+</section>
+
+<section>
+  <h2>③ 최고 모델 등록 → champion 별칭 → 불러와 예측</h2>
+  <button onclick="register()">레지스트리에 등록</button>
+  <pre id="registry">아직 등록하지 않았습니다.</pre>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) })
+  .then(async r => ({ ok: r.ok, data: await r.json() }));
+
+async function trainOne() {
+  $('status').textContent = '학습 중...';
+  const { data } = await post('/api/train', { scale: $('scale').value === 'true', C: Number($('C').value) });
+  $('status').textContent = `기록 완료: ${data.name} → accuracy ${data.accuracy}, f1 ${data.f1_macro}`;
+  loadRuns();
+}
+
+async function loadRuns() {
+  const runs = await (await fetch('/api/runs')).json();
+  $('runs').innerHTML = '';
+  runs.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    if (i === 0) tr.className = 'best';
+    const f1 = document.createElement('span');
+    f1.innerHTML = `<span class="bar" style="width:${r.f1_macro * 150}px"></span>`;
+    f1.append(r.f1_macro);
+    [i + 1, r.name, r.scaling, r.C, r.accuracy, f1].forEach(v => { const td = document.createElement('td'); td.append(v); tr.appendChild(td); });
+    $('runs').appendChild(tr);
+  });
+  if (!runs.length) $('runs').innerHTML = '<tr><td colspan="6">아직 실험이 없습니다. ①에서 실행하거나 python train.py 를 실행하세요.</td></tr>';
+}
+
+async function register() {
+  $('registry').textContent = '등록 중...';
+  const { ok, data } = await post('/api/register');
+  if (!ok) return $('registry').textContent = data.detail;
+  $('registry').textContent =
+    `최고 실험: ${data.name} (f1=${data.f1_macro})\n` +
+    `→ 모델 레지스트리: wine-classifier v${data.version} @champion\n\n` +
+    `models:/wine-classifier@champion 으로 불러와 테스트 5건 예측\n  예측: ${data.predictions}\n  정답: ${data.answers}`;
+}
+
+loadRuns();
+</script>
+</body>
+</html>

@@ -15,12 +15,23 @@ playwright
 python-docx
 aiosmtpd
 
+# p03 실전 코드리뷰 최적화
+ruff
+
 # p04 MLOps 데이터엔지니어링
 scikit-learn
 numpy
 joblib
-mlflow
+mlflow>=3.0
 fastapi
 httpx
 pytest
+sqlalchemy
+python-dotenv
+pymysql
+python-jose
+bcrypt
+python-multipart
 
+# p05 보안 DevOps
+redis

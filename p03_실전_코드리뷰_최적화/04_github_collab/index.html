@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>GitHub 협업 실습</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 1000px; margin: 30px auto; padding: 0 16px; color: #222; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; margin: 14px 0; }
+  .flow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+  .flow span { border: 1px solid #2e5597; background: #eef3fb; border-radius: 6px; padding: 4px 8px; }
+  pre { background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; }
+  textarea { width: 100%; box-sizing: border-box; font-family: Consolas, monospace; font-size: 14px; padding: 8px; }
+  button { padding: 7px 12px; cursor: pointer; margin: 4px 4px 4px 0; }
+  .tabs button.active { background: #2e5597; color: #fff; }
+  .ok { color: #188038; font-weight: bold; } .bad { color: #d93025; font-weight: bold; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>GitHub 협업 실습</h1>
+
+<section>
+  <h2>협업 흐름 (GitHub Flow)</h2>
+  <div class="flow">
+    <span>① Issue 등록</span>→<span>② 브랜치 생성<br>feature/…</span>→<span>③ 커밋 & push</span>→
+    <span>④ Pull Request</span>→<span>⑤ CI 자동 검사</span>→<span>⑥ 코드 리뷰</span>→<span>⑦ main에 merge</span>
+  </div>
+</section>
+
+<section>
+  <h2>① 충돌(Conflict) 해결 연습</h2>
+  <p class="muted">팀원 A는 <code>feature/promo</code>에서 무료배송 기준을 30,000원으로, 팀원 B는 <code>main</code>에서 70,000원으로 같은 줄을 고쳤습니다.</p>
+  <button onclick="createLab()">충돌 만들기</button> <span id="repo" class="muted"></span>
+  <div id="lab" style="display:none">
+    <h3>git merge feature/promo</h3>
+    <pre id="merge"></pre>
+    <h3>price.py <small class="muted">— 표시를 지우고 올바른 값만 남기세요</small></h3>
+    <div>
+      <button onclick="pick('main')">main 쪽 선택 (70000)</button>
+      <button onclick="pick('promo')">feature/promo 쪽 선택 (30000)</button>
+      <button onclick="$('content').value = original">원래대로</button>
+    </div>
+    <textarea id="content" rows="8"></textarea>
+    <button onclick="resolve()">해결 & 커밋 (git add + git commit)</button> <span id="result"></span>
+    <h3>git log --oneline --graph --all</h3>
+    <pre id="graph"></pre>
+  </div>
+</section>
+
+<section>
+  <h2>② 협업 템플릿 (.github/)</h2>
+  <p class="muted">저장소에 이 파일들을 두면 이슈·PR 작성 양식, 자동 리뷰어 지정, CI가 자동으로 적용됩니다.</p>
+  <div class="tabs" id="tabs"></div>
+  <pre id="template"></pre>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+let original = '';
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) })
+  .then(async r => ({ ok: r.ok, data: await r.json() }));
+
+async function createLab() {
+  const { data } = await post('/api/lab');
+  $('lab').style.display = 'block';
+  $('repo').textContent = '연습 저장소: ' + data.repo;
+  $('merge').textContent = data.merge + '\n$ git status --short\n' + data.status;
+  $('content').value = original = data.content;
+  $('graph').textContent = data.graph;
+  $('result').textContent = '';
+}
+
+// <<<<<<< HEAD (현재 브랜치 main) ======= (합치려는 feature/promo) >>>>>>>
+function pick(side) {
+  const m = original.match(/<<<<<<< [^\n]*\n([\s\S]*?)=======\n([\s\S]*?)>>>>>>> [^\n]*\n?/);
+  if (!m) return;
+  $('content').value = original.replace(m[0], side === 'main' ? m[1] : m[2]);
+}
+
+async function resolve() {
+  const { ok, data } = await post('/api/resolve', { content: $('content').value });
+  if (!ok) { $('result').innerHTML = `<span class="bad">✘ ${data.detail}</span>`; return; }
+  $('result').innerHTML = '<span class="ok">✔ 충돌 해결 커밋 완료</span>';
+  $('graph').textContent = data.graph;
+}
+
+fetch('/api/templates').then(r => r.json()).then(files => {
+  files.forEach((f, i) => {
+    const b = document.createElement('button');
+    b.textContent = f.path;
+    b.onclick = () => {
+      document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      $('template').textContent = f.content;
+    };
+    $('tabs').appendChild(b);
+    if (i === 0) b.click();
+  });
+});
+</script>
+</body>
+</html>

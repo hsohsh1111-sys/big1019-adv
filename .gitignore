@@ -19,9 +19,10 @@ inbox/
 sandbox/
 run.log
 *.db
+*.db-journal
 mlruns/
 mlartifacts/
-**/02_model_serving/model/
+**/ch02_model_serving/model/
 daily_report.csv
 applicants.xlsx
 members.xlsx

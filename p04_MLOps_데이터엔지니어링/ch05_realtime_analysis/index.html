@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>실시간 이상 탐지 대시보드</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 1000px; margin: 24px auto; padding: 0 16px; color: #222; }
+  .kpis { display: flex; gap: 10px; margin: 10px 0; }
+  .kpi { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; }
+  .kpi b { display: block; font-size: 22px; }
+  canvas { width: 100%; height: 170px; border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+  #log { height: 200px; overflow-y: auto; font-family: Consolas, monospace; font-size: 13px; background: #1e1e1e; color: #d4d4d4; padding: 8px; border-radius: 6px; }
+  .alert { color: #ff6b6b; } .info { color: #8ab4f8; } .sup { color: #888; }
+  button, input { padding: 7px 12px; font-size: 14px; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>설비 센서 실시간 이상 탐지 <small class="muted">Producer → Queue → Consumer → SSE → 브라우저</small></h1>
+<p>
+  <input id="seconds" type="number" value="30" min="5" max="120" style="width:70px">초
+  <button id="startBtn" onclick="start()">스트리밍 시작</button>
+  <button onclick="stop()">중지</button>
+  <span id="status" class="muted">처음 5초(100건)는 모델 학습용 워밍업입니다.</span>
+</p>
+
+<div class="kpis">
+  <div class="kpi">처리 건수<b id="k_proc">0</b></div>
+  <div class="kpi">경보<b id="k_alert" style="color:#d93025">0</b></div>
+  <div class="kpi">쿨다운으로 묶임<b id="k_sup">0</b></div>
+  <div class="kpi">상태<b id="k_state">대기</b></div>
+</div>
+
+<h3>온도 (℃)</h3><canvas id="temp" width="960" height="170"></canvas>
+<h3>진동 (g)</h3><canvas id="vib" width="960" height="170"></canvas>
+<h3>이벤트 로그</h3><div id="log"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const MAX_POINTS = 300;
+let es, points = [], counts = { proc: 0, alert: 0, sup: 0 };
+
+function log(text, cls) {
+  const div = document.createElement('div');
+  div.className = cls; div.textContent = text;
+  $('log').prepend(div);
+}
+
+// 선 그래프 + 경보 지점(빨간 점) + 경보 아닌 이상치(회색 점)
+function draw(canvasId, key, min, max) {
+  const c = $(canvasId), ctx = c.getContext('2d'), W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  const x = i => i / (MAX_POINTS - 1) * W;
+  const y = v => H - (Math.min(Math.max(v, min), max) - min) / (max - min) * H;
+  ctx.strokeStyle = '#4a7bd0'; ctx.lineWidth = 1.5; ctx.beginPath();
+  points.forEach((p, i) => i ? ctx.lineTo(x(i), y(p[key])) : ctx.moveTo(x(i), y(p[key])));
+  ctx.stroke();
+  points.forEach((p, i) => {
+    if (!p.alert && !p.suppressed) return;
+    ctx.fillStyle = p.alert ? '#d93025' : '#999';
+    ctx.beginPath(); ctx.arc(x(i), y(p[key]), p.alert ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function start() {
+  stop();
+  points = []; counts = { proc: 0, alert: 0, sup: 0 }; $('log').innerHTML = '';
+  es = new EventSource('/stream?seconds=' + $('seconds').value);
+  $('k_state').textContent = '워밍업';
+  es.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    points.push(ev); if (points.length > MAX_POINTS) points.shift();
+    counts.proc++;
+    if (ev.model_trained) { $('k_state').textContent = '감시 중'; log(`[모델] ${ev.seq}건으로 Isolation Forest 학습 완료 → 실시간 판정 시작`, 'info'); }
+    if (ev.alert) { counts.alert++; log(`🚨 ${ev.time} #${ev.seq} 온도 ${ev.temp.toFixed(1)}℃ 진동 ${ev.vibration.toFixed(3)} ← ${ev.reason}`, 'alert'); }
+    if (ev.suppressed) { counts.sup++; log(`   (쿨다운) #${ev.seq} ${ev.reason}`, 'sup'); }
+    if (ev.tumbling) log(`⏱ ${ev.seq}건 처리 | 최근 평균 온도 ${ev.tumbling.temp}℃ 진동 ${ev.tumbling.vibration}`, 'info');
+    $('k_proc').textContent = counts.proc; $('k_alert').textContent = counts.alert; $('k_sup').textContent = counts.sup;
+    draw('temp', 'temp', 55, 90); draw('vib', 'vibration', 0.1, 1.3);
+  };
+  es.addEventListener('summary', e => {   // 서버가 보낸 마지막 요약 → 연결 종료 (안 닫으면 브라우저가 자동 재연결)
+    const s = JSON.parse(e.data);
+    log(`[요약] 처리 ${s.processed} | Z 경보 ${s.z_alerts} | ML 경보 ${s.ml_alerts} | 쿨다운 ${s.suppressed} | 평균 지연 ${s.avg_latency_ms}ms`, 'info');
+    stop('완료');
+  });
+}
+
+function stop(state = '중지') {
+  if (es) { es.close(); es = null; $('k_state').textContent = state; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Visit Counter</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 760px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; }
+  .count { font-size: 64px; font-weight: bold; color: #2496ed; margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin-top: 14px; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+  th { background: #eef6fd; width: 160px; }
+  button { padding: 8px 16px; cursor: pointer; margin: 10px 4px 0 0; }
+  .bar { background: #2496ed; height: 16px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>🐳 Visit Counter</h1>
+<div class="card">
+  <div id="message" class="muted">-</div>
+  <div class="count" id="visits">-</div>
+  <div class="muted">번째 방문</div>
+  <table>
+    <tr><th>저장소 (backend)</th><td id="backend"></td></tr>
+    <tr><th>앱 버전 (version)</th><td id="version"></td></tr>
+    <tr><th>호스트 (컨테이너/Pod)</th><td id="hostname"></td></tr>
+  </table>
+  <button onclick="visit()">다시 방문 (+1)</button>
+  <button onclick="spread()">20번 호출 → 어느 컨테이너가 응답했나?</button>
+</div>
+<div id="spread"></div>
+<p class="muted">memory: 서버를 재시작하면 0부터 / redis: 재시작해도 유지 · 호스트 이름이 여러 개면 로드밸런싱 중 (Kubernetes)</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const call = () => fetch('/api/visit', { cache: 'no-store' }).then(r => r.json());
+
+async function visit() {
+  const d = await call();
+  ['message', 'visits', 'backend', 'version', 'hostname'].forEach(k => $(k).textContent = d[k]);
+}
+
+async function spread() {
+  const tally = {};
+  for (let i = 0; i < 20; i++) { const d = await call(); tally[d.hostname] = (tally[d.hostname] || 0) + 1; $('visits').textContent = d.visits; }
+  $('spread').innerHTML = '<h3>응답한 호스트 분포</h3>' + Object.entries(tally).map(([h, n]) =>
+    `<div><span class="bar" style="width:${n * 20}px"></span>${h} — ${n}회</div>`).join('');
+}
+
+visit();
+</script>
+</body>
+</html>

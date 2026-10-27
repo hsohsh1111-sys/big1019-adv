@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Cart API</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 640px; margin: 30px auto; padding: 0 16px; color: #222; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+  th { background: #f1f3f4; } td:first-child { text-align: left; }
+  input { width: 60px; padding: 4px; }
+  .total { font-size: 26px; font-weight: bold; text-align: right; margin: 14px 0 4px; }
+  .badge { display: inline-block; background: #24292f; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 12px; }
+  .muted { color: #888; font-size: 13px; text-align: right; }
+  .err { color: #d93025; }
+</style>
+</head>
+<body>
+<h1>🛒 장바구니 <span class="badge" id="version">version: -</span></h1>
+<table>
+  <thead><tr><th>상품</th><th>가격</th><th>수량</th></tr></thead>
+  <tbody id="items"></tbody>
+</table>
+<div class="total" id="total">-</div>
+<div class="muted">50,000원 이상 무료배송 · 미만이면 배송비 3,000원 (서버 POST /cart/total 이 계산)</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PRODUCTS = [['키보드', 39000, 1], ['마우스', 19000, 0], ['USB 허브', 12000, 0], ['모니터', 189000, 0]];
+
+$('items').innerHTML = PRODUCTS.map(([name, price, qty], i) =>
+  `<tr><td>${name}</td><td>${price.toLocaleString()}원</td><td><input type="number" min="0" max="99" value="${qty}" id="q${i}"></td></tr>`).join('');
+PRODUCTS.forEach((_, i) => $('q' + i).addEventListener('input', calc));
+
+async function calc() {
+  const items = PRODUCTS.map(([, price], i) => ({ price, qty: Number($('q' + i).value) })).filter(it => it.qty > 0);
+  const res = await fetch('/cart/total', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items) });
+  const data = await res.json();
+  $('total').className = res.ok ? 'total' : 'total err';
+  $('total').textContent = res.ok ? `합계 ${data.total.toLocaleString()}원` : `입력 오류 (${res.status}) — 수량은 1~99`;
+}
+
+fetch('/health').then(r => r.json()).then(d => $('version').textContent = 'version: ' + d.version);
+calc();
+</script>
+</body>
+</html>

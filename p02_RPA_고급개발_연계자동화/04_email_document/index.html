@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>메일 머지 & 수료증 자동화</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 960px; margin: 30px auto; padding: 0 16px; color: #222; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+  th { background: #dce6f2; }
+  button { padding: 8px 16px; cursor: pointer; }
+  .ok { color: #188038; font-weight: bold; } .fail { color: #d93025; font-weight: bold; }
+  .inbox { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+  .mail { border-bottom: 1px solid #eee; padding: 6px; cursor: pointer; font-size: 13px; }
+  .mail:hover { background: #f1f5fb; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; white-space: pre-wrap; min-height: 120px; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>메일 머지 & 수료증 자동화</h1>
+<p class="muted">엑셀 명단 → 개인별 Word 수료증 → 첨부 메일 발송. 메일은 실제로 나가지 않고 내 PC의 테스트 서버(inbox/)에 저장됩니다.</p>
+
+<section>
+  <h2>① 수료생 명단 <small class="muted">members.xlsx</small></h2>
+  <table><thead><tr><th>이름</th><th>이메일</th><th>과정</th><th>점수</th></tr></thead><tbody id="members"></tbody></table>
+</section>
+
+<section>
+  <h2>② 발송</h2>
+  <button onclick="send()">수료증 생성 & 메일 발송</button> <span id="status" class="muted"></span>
+  <table style="margin-top:8px"><thead><tr><th>이름</th><th>이메일</th><th>결과</th><th>비고(첨부 파일)</th></tr></thead><tbody id="results"></tbody></table>
+  <p id="resultFile" style="display:none">📥 <a href="/download/send_result.xlsx">send_result.xlsx</a> (발송 결과)</p>
+</section>
+
+<section>
+  <h2>③ 받은 편지함 <small class="muted">테스트 메일 서버 inbox/</small> <button onclick="loadInbox()">새로고침</button></h2>
+  <div class="inbox">
+    <div id="mails"><p class="muted">아직 받은 메일이 없습니다.</p></div>
+    <pre id="body">메일을 클릭하면 본문이 보입니다.</pre>
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function fill(id, rows) {
+  $(id).innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    r.forEach((v, i) => {
+      const td = document.createElement('td');
+      if (id === 'results' && i === 3 && String(v).endsWith('.docx')) {
+        const a = document.createElement('a');
+        a.href = '/download/' + encodeURIComponent(v); a.textContent = v;
+        td.appendChild(a);
+      } else td.textContent = v;
+      if (v === '발송') td.className = 'ok';
+      if (v === '실패') td.className = 'fail';
+      tr.appendChild(td);
+    });
+    $(id).appendChild(tr);
+  });
+}
+
+async function send() {
+  $('status').textContent = '발송 중...';
+  const res = await fetch('/api/send', { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) return $('status').textContent = data.detail;
+  $('status').textContent = `완료: ${data.filter(r => r[2] === '발송').length}건 발송 / ${data.length}명`;
+  fill('results', data);
+  $('resultFile').style.display = 'block';
+  loadInbox();
+}
+
+async function loadInbox() {
+  const mails = await (await fetch('/api/inbox')).json();
+  if (!mails.length) return;
+  $('mails').innerHTML = '';
+  mails.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'mail';
+    div.textContent = `📨 ${m.to} | ${m.subject} | 📎 ${m.attachments.join(', ')}`;
+    div.onclick = () => $('body').textContent = `받는 사람: ${m.to}\n제목: ${m.subject}\n첨부: ${m.attachments.join(', ')}\n\n${m.body}`;
+    $('mails').appendChild(div);
+  });
+}
+
+fetch('/api/members').then(r => r.json()).then(rows => fill('members', rows));
+loadInbox();
+</script>
+</body>
+</html>

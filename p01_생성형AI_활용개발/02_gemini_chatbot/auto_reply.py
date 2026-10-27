@@ -4,6 +4,7 @@
 → 4) 답변 검증(길이·금지어) → 실패 시 상담원 연결
 
 실행:
+  uvicorn web:app --reload      # 브라우저 → http://127.0.0.1:8000
   python auto_reply.py          # 샘플 문의 일괄 처리
   python auto_reply.py -i       # 직접 입력
 """
@@ -65,7 +66,7 @@ def reply(raw_question):
 
 
 def main():
-    print(f"[자동 응답 시스템] AI 모드: {'Gemini ' + gemini_client.MODEL if gemini_client.has_key() else '모의'}\n")
+    print(f"[자동 응답 시스템] AI 모드: {gemini_client.mode()}\n")
     questions = iter(lambda: input("문의: ").strip(), "") if "-i" in sys.argv else SAMPLES
     for q in questions:
         source, masked, answer = reply(q)

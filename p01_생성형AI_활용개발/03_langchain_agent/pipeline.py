@@ -1,6 +1,8 @@
 """LCEL 파이프라인: 긴 글 → (1) 3줄 요약 → (2) 요약으로 제목 생성 → (3) 결과 dict.
 
-실행: python pipeline.py
+실행:
+  uvicorn web:app --reload   # 브라우저 → http://127.0.0.1:8000
+  python pipeline.py         # 터미널
 키가 없으면 FakeListChatModel(정해진 답을 순서대로 돌려주는 가짜 LLM)으로 동작.
 """
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
@@ -37,11 +39,17 @@ title_prompt = ChatPromptTemplate.from_messages([
 summary_chain = summarize_prompt | llm | StrOutputParser()
 title_chain = title_prompt | llm | StrOutputParser()
 
+# {"article"} → +summary → +title : 앞 단계 결과가 dict에 누적되며 다음 단계로 전달된다
 pipeline = RunnablePassthrough.assign(summary=summary_chain) | RunnablePassthrough.assign(title=title_chain)
 
 
+def run_pipeline(article):
+    result = pipeline.invoke({"article": article})
+    return {"model": type(llm).__name__, "title": result["title"].strip(), "summary": result["summary"].strip()}
+
+
 if __name__ == "__main__":
-    print(f"[모델] {type(llm).__name__}\n")
-    result = pipeline.invoke({"article": ARTICLE})
-    print("■ 제목:", result["title"].strip())
-    print("■ 요약:\n" + result["summary"].strip())
+    out = run_pipeline(ARTICLE)
+    print(f"[모델] {out['model']}\n")
+    print("■ 제목:", out["title"])
+    print("■ 요약:\n" + out["summary"])

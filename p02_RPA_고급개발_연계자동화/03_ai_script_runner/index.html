@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>AI 파일 정리 자동화</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 960px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .grid { display: grid; grid-template-columns: 260px 1fr; gap: 16px; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; }
+  input, textarea { width: 100%; box-sizing: border-box; padding: 8px; font-size: 14px; }
+  textarea { font-family: Consolas, monospace; font-size: 13px; }
+  button { padding: 7px 12px; cursor: pointer; margin: 6px 4px 0 0; }
+  .ex { font-size: 12px; padding: 3px 8px; }
+  ul.files { font-family: Consolas, monospace; font-size: 13px; padding-left: 18px; }
+  .ok { color: #188038; } .err { color: #d93025; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; min-height: 40px; }
+  .danger { background: #fce8e6; border: 1px solid #d93025; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>AI 파일 정리 자동화 <small class="muted">자연어 → 계획 → 검증 → 미리보기 → 실행</small></h1>
+
+<div class="grid">
+  <div class="card">
+    <h3>sandbox/ 폴더</h3>
+    <ul class="files" id="files"></ul>
+    <button onclick="reset()">초기화</button>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3>① 자연어 지시</h3>
+      <input id="request" value="pdf는 documents 폴더로 옮기고 이름 앞에 오늘 날짜를 붙여줘">
+      <div>
+        <button class="ex" onclick="setReq('사진은 images 폴더로 정리해줘')">사진 정리</button>
+        <button class="ex" onclick="setReq('엑셀 파일은 data 폴더로 옮겨줘')">엑셀 정리</button>
+      </div>
+      <button onclick="makePlan()">계획 만들기</button>
+      <button class="danger" onclick="loadEvil()">⚠ 위험한 계획 불러오기</button>
+      <span class="muted" id="source"></span>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>② 실행 계획 (JSON) <small class="muted">직접 고쳐서 가드레일을 시험해 보세요. 예: "dst": "../../"</small></h3>
+      <textarea id="plan" rows="8"></textarea>
+      <button onclick="check()">검증 & 미리보기</button>
+      <button onclick="apply()" id="applyBtn" disabled>실행</button>
+      <pre id="result"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  .then(async r => ({ ok: r.ok, data: await r.json() }));
+
+function showFiles(files) {
+  $('files').innerHTML = '';
+  files.forEach(f => { const li = document.createElement('li'); li.textContent = f; $('files').appendChild(li); });
+}
+
+function setPlan(d) {
+  $('plan').value = JSON.stringify(d.plan, null, 2);
+  $('source').textContent = '계획 작성: ' + d.source;
+  $('result').textContent = '';
+  $('applyBtn').disabled = true;
+}
+
+function readPlan() {
+  try { return JSON.parse($('plan').value); }
+  catch (e) { $('result').innerHTML = `<span class="err">JSON 형식 오류: ${e.message}</span>`; return undefined; }
+}
+
+function setReq(t) { $('request').value = t; makePlan(); }
+async function makePlan() { setPlan((await post('/api/plan', { request: $('request').value })).data); }
+async function loadEvil() { setPlan(await (await fetch('/api/evil-plan')).json()); }
+async function reset() { showFiles((await post('/api/reset', {})).data); }
+
+async function check() {
+  const plan = readPlan();
+  if (plan === undefined) return;
+  const { data } = await post('/api/check', { plan });
+  if (data.errors.length) {
+    $('result').innerHTML = '<b class="err">■ 검증 실패 — 실행할 수 없습니다</b>\n';
+    data.errors.forEach(e => $('result').append('✘ ' + e + '\n'));
+    $('applyBtn').disabled = true;
+  } else {
+    $('result').innerHTML = '<b class="ok">■ 검증 통과 — 미리보기 (아직 아무것도 바뀌지 않았습니다)</b>\n';
+    $('result').append(data.changes.join('\n') || '변경 사항 없음');
+    $('applyBtn').disabled = data.changes.length === 0;
+  }
+}
+
+async function apply() {
+  const { ok, data } = await post('/api/apply', { plan: readPlan() });
+  if (!ok) { $('result').textContent = '서버가 거부: ' + data.detail; return; }
+  $('result').innerHTML = '<b class="ok">■ 실행 완료 (run.log 기록)</b>\n';
+  $('result').append(data.changes.join('\n'));
+  $('applyBtn').disabled = true;
+  showFiles(data.files);
+}
+
+fetch('/api/files').then(r => r.json()).then(showFiles);
+</script>
+</body>
+</html>

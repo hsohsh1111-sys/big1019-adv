@@ -1,6 +1,7 @@
 """엑셀 명단을 읽어 웹 신청 폼에 자동 입력하는 UI 자동화 (Playwright).
 
 실행:
+  uvicorn web:app --reload     # 브라우저 대시보드 → http://127.0.0.1:8000 에서 [봇 실행]
   python auto_fill.py          # 화면 없이(headless) 실행
   python auto_fill.py --show   # 브라우저가 움직이는 모습 보기
 결과: output/result.xlsx (건별 성공/실패), output/screenshot.png
@@ -34,6 +35,10 @@ def ensure_sample_data():
     print(f"샘플 명단 생성: {DATA.name}")
 
 
+def read_rows(path):
+    return [list(r) for r in load_workbook(path).active.iter_rows(min_row=2, values_only=True)]
+
+
 def launch(p, headless):
     for channel in ("msedge", "chrome", None):  # 설치된 브라우저부터 시도
         try:
@@ -56,7 +61,7 @@ def fill_one(page, name, email, course):
 
 def main():
     ensure_sample_data()
-    rows = list(load_workbook(DATA).active.iter_rows(min_row=2, values_only=True))
+    rows = read_rows(DATA)
     OUT.mkdir(exist_ok=True)
     results = Workbook()
     rs = results.active

@@ -2,6 +2,7 @@
 
 입력: `aws ec2 describe-security-groups` 출력 형식의 JSON
 실행:
+  uvicorn web:app --reload                   # 브라우저 → http://127.0.0.1:8000 (아래쪽 보안 그룹 점검)
   python sg_audit.py                         # 샘플 security_groups.json 점검
   aws ec2 describe-security-groups > my.json && python sg_audit.py my.json   # 내 AWS 계정 점검 (조회만, 무료)
 """
@@ -37,10 +38,14 @@ def audit(groups):
     return findings
 
 
+def audit_sorted(groups):
+    return sorted(audit(groups), key=lambda f: ["치명", "높음", "보통", "낮음"].index(f[0]))
+
+
 def main():
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "security_groups.json"
     groups = json.loads(path.read_text(encoding="utf-8"))["SecurityGroups"]
-    findings = sorted(audit(groups), key=lambda f: ["치명", "높음", "보통", "낮음"].index(f[0]))
+    findings = audit_sorted(groups)
     print(f"보안 그룹 {len(groups)}개 점검 — 발견 {len(findings)}건\n")
     for level, name, port, fix in findings:
         print(f"[{level}] {name:<22} 0.0.0.0/0 → {port:<14} 조치: {fix}")

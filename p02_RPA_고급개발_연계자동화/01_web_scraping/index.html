@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>책 정보 스크래퍼</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 960px; margin: 30px auto; padding: 0 16px; color: #222; }
+  button, input { padding: 8px 12px; font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0 20px; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+  th { background: #dce6f2; position: sticky; top: 0; }
+  .scroll { max-height: 360px; overflow-y: auto; }
+  .muted { color: #888; font-size: 13px; }
+  .stars { color: #f9a825; }
+</style>
+</head>
+<body>
+<h1>책 정보 스크래퍼 <small class="muted">books.toscrape.com (연습용 사이트)</small></h1>
+<p>
+  페이지 수 <input id="pages" type="number" value="1" min="1" max="5" style="width:60px">
+  <button onclick="run()">수집 시작</button>
+  <span id="status" class="muted">1페이지 = 20권, 페이지마다 1초씩 쉬면서 수집합니다.</span>
+</p>
+<p id="downloads" style="display:none">
+  📥 <a href="/download/books.csv">books.csv</a> · <a href="/download/books.xlsx">books.xlsx</a> (엑셀: 전체 + 평점별 시트)
+</p>
+
+<h3>평점별 통계</h3>
+<table><thead><tr><th>평점</th><th>권수</th><th>평균가격(£)</th></tr></thead><tbody id="stats"></tbody></table>
+
+<h3>추천 TOP 5 <small class="muted">(평점 높은 순 → 가격 낮은 순)</small></h3>
+<table><thead><tr><th>제목</th><th>가격(£)</th><th>평점</th></tr></thead><tbody id="top"></tbody></table>
+
+<h3>전체 목록 <small class="muted" id="count"></small></h3>
+<div class="scroll">
+  <table><thead><tr><th>제목</th><th>가격(£)</th><th>평점</th><th>재고</th></tr></thead><tbody id="books"></tbody></table>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+
+function fill(tbodyId, rows, cols) {
+  $(tbodyId).innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    cols.forEach(c => {
+      const td = document.createElement('td');
+      td.textContent = typeof c === 'function' ? c(r) : r[c];
+      tr.appendChild(td);
+    });
+    $(tbodyId).appendChild(tr);
+  });
+}
+
+async function run() {
+  const pages = Number($('pages').value);
+  $('status').textContent = `수집 중... (약 ${pages * 2}초)`;
+  const res = await fetch('/api/scrape', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pages }) });
+  const data = await res.json();
+  if (!res.ok) return $('status').textContent = '실패: ' + (data.detail?.[0]?.msg || data.detail);
+  $('status').textContent = `완료! 총 ${data.count}권`;
+  $('count').textContent = `${data.count}권`;
+  $('downloads').style.display = 'block';
+  fill('stats', data.stats, [r => stars(r['평점']), '권수', '평균가격']);
+  fill('top', data.top, ['제목', '가격(£)', r => stars(r['평점'])]);
+  fill('books', data.books, ['제목', '가격(£)', r => stars(r['평점']), '재고']);
+}
+</script>
+</body>
+</html>

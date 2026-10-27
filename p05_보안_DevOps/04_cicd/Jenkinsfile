@@ -32,7 +32,7 @@ pipeline {
     }
 
     stage('Build Image') {
-      steps { sh 'docker build -t ${IMAGE}:${BUILD_NUMBER} .' }
+      steps { sh 'docker build --build-arg APP_VERSION=build-${BUILD_NUMBER} -t ${IMAGE}:${BUILD_NUMBER} .' }
     }
 
     stage('Deploy') {

@@ -1,154 +1,92 @@
 # 심화_생성형 AI와 AWS 클라우드를 활용한 풀스택 & 자동화 실무 개발
 
-> 생성형 AI, RPA, MLOps/DevOps, AWS 클라우드를 활용해 실무형 풀스택 웹 서비스를 기획·개발·배포하는 심화 과정입니다.
+> 생성형 AI · RPA · 코드 품질 · MLOps · 보안/DevOps를 **90시간** 동안 브라우저에서 실행되는 예제로 학습합니다.
 
-| 구분 | 내용 |
-|---|---|
-| 훈련 기간 | 2026-10-19 ~ 2026-12-21 |
-| 총 교육 시간 | **348시간** (정규 교과 100h + 프로젝트 248h) |
-| 세미 프로젝트 | 2026-11-05 ~ 2026-11-23 (96h) |
-| 파이널 프로젝트 | 2026-11-23 ~ 2026-12-21 (152h) |
+## � 시간 배분 (총 90h)
 
----
+| 파트 | 주제 | 예제 수 | 시간 |
+|---|---|:---:|:---:|
+| [p01](p01_생성형AI_활용개발) | 생성형 AI 활용 개발 | 5 | 20h |
+| [p02](p02_RPA_고급개발_연계자동화) | RPA 고급 개발 및 연계 자동화 | 5 | 18h |
+| [p03](p03_실전_코드리뷰_최적화) | 실전 코드 리뷰 및 최적화 | 4 | 14h |
+| [p04](p04_MLOps_데이터엔지니어링) | MLOps 및 데이터 엔지니어링 | 6 | 22h |
+| [p05](p05_보안_DevOps) | 보안 및 DevOps | 5 | 16h |
+| **합계** | | **25** | **90h** |
 
-## 🚀 전체 교육 과정 시간 배분표 (총 348h)
+## 📚 파트별 학습 내용
 
-| 구분 | 내용 | 시간 |
+### p01. 생성형 AI 활용 개발 (20h)
+
+| 예제 | 학습 내용 | 시간 |
 |---|---|:---:|
-| 📚 정규 교과 | Git & GitHub, 생성형 AI, MLOps & DevOps, AWS | 100h |
-| 🎨 세미 프로젝트 | RPA 중심 자동화 웹 서비스 (TiDB, Render) | 96h |
-| 🏆 파이널 프로젝트 | 생성형 AI + RPA 지능형 웹 서비스 (AWS RDS, EC2, S3) | 152h |
-| **합계** | | **348h** |
+| 01_openai_chatbot | OpenAI API 챗봇, 대화 기록(history)과 토큰 | 3h |
+| 02_gemini_chatbot | Gemini API 챗봇, FAQ + AI 자동 응답 시스템 | 4h |
+| 03_langchain_agent | LangChain 도구 사용 에이전트, LCEL 파이프라인 | 5h |
+| 04_doc_summarizer | 문서 요약·정보 추출, 보고서 자동 생성 | 3h |
+| 05_ai_db_webapp | AI + DB 웹앱 (FastAPI + SQLite, 간단한 RAG) | 5h |
 
----
+### p02. RPA 고급 개발 및 연계 자동화 (18h)
 
-## 📚 1. 정규 교과 과정 (총 100h)
+| 예제 | 학습 내용 | 시간 |
+|---|---|:---:|
+| 01_web_scraping | requests + BeautifulSoup 스크래핑, CSV·엑셀 저장 | 4h |
+| 02_ui_automation | Playwright로 엑셀 명단 → 웹 폼 자동 입력 | 4h |
+| 03_ai_script_runner | LLM 기반 자동화 스크립트 (계획 → 검증 → 실행) | 3h |
+| 04_email_document | 수료증(Word) 생성 + 메일 자동 발송 | 3h |
+| 05_rpa_ai_pipeline | 수집(RPA) → 분류(AI) → 사람 검토 → 보고 | 4h |
 
-### ① 깃 & 깃허브 (Git & GitHub)
+### p03. 실전 코드 리뷰 및 최적화 (14h)
 
-| 항목 | 내용 |
-|---|---|
-| 작업 방식 | GUI 및 CLI(명령어) 병행 |
-| GUI 도구 | VS Code, GitHub Desktop |
-| CLI 도구 | Bash 터미널 |
+| 예제 | 학습 내용 | 시간 |
+|---|---|:---:|
+| 01_refactoring_python | 코드 리뷰·리팩토링, O(n²) → O(n) 성능 개선 | 4h |
+| 02_eslint_prettier | ESLint·Prettier 린트와 포맷 | 3h |
+| 03_static_analysis | Ruff·SonarQube 정적 분석, 보안 취약점 | 3h |
+| 04_github_collab | GitHub Flow, 충돌 해결, 이슈·PR 템플릿, CI | 4h |
 
-### ② 생성형 AI (Generative AI)
+### p04. MLOps 및 데이터 엔지니어링 (22h)
 
-| 항목 | 내용 |
-|---|---|
-| 지원 모델 | LLM (GPT, Gemini, Claude 등) |
-| Agent & IDE | VS Code, Antigravity, Cursor, Devin 등 |
-| 활용 영역 | 멀티모달 활용 (코드, 텍스트, 이미지, 동영상, PPT, 음성 등) |
+| 예제 | 학습 내용 | 시간 |
+|---|---|:---:|
+| ch01_mlflow_tracking | MLOps 개념, MLflow 실험 추적·모델 레지스트리 | 4h |
+| ch02_model_serving | FastAPI 모델 서빙 API, Docker 이미지 | 3h |
+| ch03_sagemaker | SageMaker 학습·배포 흐름 (로컬 재현) | 3h |
+| ch04_data_pipeline | 날씨 데이터 ETL (수집·정제·검증·적재) | 4h |
+| ch05_realtime_analysis | 스트리밍 이상 탐지, 실시간 차트(SSE) | 3h |
+| ch06_fastAPI | FastAPI 기초, SQLAlchemy, Pydantic, APIRouter, JWT | 5h |
 
-### ③ MLOps & DevOps
+### p05. 보안 및 DevOps (16h)
 
-**MLOps (AI / Data Operations)**
+| 예제 | 학습 내용 | 시간 |
+|---|---|:---:|
+| 01_iam_policy_lab | IAM 정책 평가, 보안 그룹 점검 | 3h |
+| 02_docker | Dockerfile, Docker Compose (앱 + Redis) | 4h |
+| 03_kubernetes | kind 클러스터 배포, 롤링 업데이트·확장 | 4h |
+| 04_cicd | GitHub Actions·Jenkins CI/CD 파이프라인 | 3h |
+| 05_terraform | Terraform IaC (local · docker · AWS 예시) | 2h |
 
-| 항목 | 내용 |
-|---|---|
-| AI 모델 및 LLM 서빙 | 파이썬(FastAPI 등) 기반 AI API 서버 구축 |
-| 컨테이너화 | 개발 및 배포 환경의 일치화 (Docker, Docker Compose) |
-| LLMOps / 파이프라인 | 프롬프트 관리, API 연동 및 데이터 처리 파이프라인 |
+## ⚙️ 실습 환경
 
-**DevOps (Infrastructure & CI/CD)**
+```bash
+python -m venv .venv
+.venv\Scripts\activate             # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-| 항목 | 내용 |
-|---|---|
-| 자동화 (CI/CD) | GitHub Actions를 통한 자동 빌드·테스트·배포 |
-| 클라우드 연동 | Docker 기반 AWS(EC2) 및 Render 환경 배포 자동화 |
+- 대부분의 예제: 예제 폴더에서 `uvicorn web:app --reload` → http://127.0.0.1:8000
+- AI 예제는 `GEMINI_API_KEY`(무료)가 없어도 **모의 모드**로 실행됩니다.
+- Docker · Kubernetes · Terraform 예제는 해당 도구 설치가 필요하며, 실제 AWS 실행 시 비용이 발생할 수 있습니다.
 
-### ④ AWS (클라우드 인프라)
-
-| 서비스 | 용도 |
-|---|---|
-| EC2 | 애플리케이션 및 프로그램 구동 (컴퓨팅 서버, 20GB) |
-| RDS | 관계형 데이터베이스 관리 (데이터베이스) |
-| S3 | 이미지 및 정적 파일 스토리지 (파일 저장소) |
-
----
-
-## 💡 2. 프로젝트 과정 (총 248h)
-
-### 🎨 세미 프로젝트 (96h)
-
-| 구분 | 내용 |
-|---|---|
-| 기간 | 2026-11-05 ~ 2026-11-23 (13일) |
-| 주요 스택 | TiDB, Render |
-| 주제 (택1) | ① 개인 맞춤형 여행상품 추천 ② 패션용품 쇼핑몰 ③ 헬스케어 서비스 ④ 영화 티켓 예약 추천 |
-| 목표 | RPA 기술로 서비스 데이터를 효율적으로 수집·가공하고, 클라우드 기반 웹 서비스를 기획·설계·개발·배포하여 업무 자동화 중심의 실무 역량을 갖춘다. |
-
-| 단계 | 기간 | 시간 | 주요 산출물 |
-|---|---|:---:|---|
-| 기획 | 11-05 | 5h | 프로젝트 기획서, 역할 분담표, WBS, 위험 관리 계획서 |
-| 분석 | 11-06 | 8h | 요구사항 정의서, 시스템 구성도, 개발 환경 구성표 |
-| 설계 | 11-09 | 8h | ERD·테이블 정의서, 화면 설계서, API 명세서 |
-| 개발 | 11-10 ~ 11-19 | 64h | 소스코드(GitHub), 기능 구현 목록 |
-| 테스트 / 배포 | 11-20 ~ 11-23 | 11h | 테스트 결과서, 배포 URL, 결과보고서 |
-
-- 상세 계획: [docs/semi/프로젝트_실행계획.md](docs/semi/프로젝트_실행계획.md)
-- 산출물 양식: [docs/semi/산출물](docs/semi/산출물)
-
-### 🏆 파이널 프로젝트 (152h)
-
-| 구분 | 내용 |
-|---|---|
-| 기간 | 2026-11-23 ~ 2026-12-21 (21일) |
-| 주요 스택 | AWS (RDS, EC2, S3) |
-| 주제 (택1) | ① 맞춤형 커리어 컨설팅 ② 실시간 가격 비교 & 할인 추천 ③ AI 레시피 및 식단 추천 ④ 데이터 입력 자동화 시스템 |
-| 목표 | 생성형 AI와 RPA 기술을 융합한 지능형 웹 서비스를 기획·설계·개발하고, 클라우드 인프라 기반으로 안정적으로 배포·운영하여 실무 프로젝트 수행 역량을 갖춘다. |
-
-| 단계 | 기간 | 시간 | 주요 산출물 |
-|---|---|:---:|---|
-| 기획 | 11-23 | 5h | 프로젝트 기획서, 역할 분담표, WBS, 위험 관리 계획서 |
-| 분석 | 11-24 | 8h | 요구사항 정의서, 시스템 구성도, 개발 환경 구성표 |
-| 설계 | 11-25 | 8h | ERD·테이블 정의서, 화면 설계서, API 명세서 |
-| 개발 | 11-26 ~ 12-07 | 62h | 소스코드(GitHub), 기능 구현 목록 |
-| 테스트 / 배포 | 12-08 ~ 12-09 | 16h | 테스트 결과서, 배포 URL, 결과보고서, 발표자료, 시연 영상 |
-| 수정 보완 / 재배포 | 12-10 ~ 12-17 | 46h | 수정 보완 내역서 |
-| 발표 / 프로젝트 완료 | 12-18 ~ 12-21 | 7h | 최종 결과보고서 |
-
-> ※ 기업 프로젝트 특강(12-03, 12-14), 프로젝트 발표회(12-18), 수료식(12-21)은 별도 교과로 시수에서 제외
-
-- 상세 계획: [docs/final/프로젝트_실행계획.md](docs/final/프로젝트_실행계획.md)
-- 산출물 양식: [docs/final/산출물](docs/final/산출물)
-
----
-
-## � 심화 학습 자료 (개념 + 무료 실습 예제)
-
-[list.md](list.md)의 심화 주제를 5개 폴더로 정리했습니다. 각 폴더의 `개념/`에는 쉬운 설명 문서, `예제/`에는 무료로 실행할 수 있는 실습 코드가 있습니다.
-
-| 폴더 | 주제 | 대표 실습 |
-|---|---|---|
-| [01_생성형AI_활용개발](01_생성형AI_활용개발) | OpenAI·Gemini 챗봇, LangChain 에이전트, 문서 요약, AI + DB 웹앱 | FAQ 자동 응답, 도구 사용 에이전트, AI 메모장(FastAPI + SQLite) |
-| [02_RPA_고급개발_연계자동화](02_RPA_고급개발_연계자동화) | 스크래핑·UI 자동화, AI 기반 자동화 스크립트, 메일·문서 자동화, RPA + AI | 웹 폼 자동 입력(Playwright), 수료증 메일 머지, 수집 → AI 분류 → 보고 |
-| [03_실전_코드리뷰_최적화](03_실전_코드리뷰_최적화) | 코드 품질, 리뷰·리팩토링·성능, ESLint·Prettier·SonarQube, GitHub 협업 | O(n²) → O(n) 리팩토링 벤치마크, 린트 실습, 충돌 해결 연습 |
-| [04_MLOps_데이터엔지니어링](04_MLOps_데이터엔지니어링) | MLOps, SageMaker, 데이터 파이프라인, 실시간 분석 | MLflow 실험 추적, 모델 서빙 API, 날씨 ETL, 스트리밍 이상 탐지 |
-| [05_보안_DevOps](05_보안_DevOps) | IAM·VPC, Docker·Kubernetes, CI/CD, Terraform | IAM 정책 시뮬레이터, Compose·kind 배포, GitHub Actions, Terraform |
-
-> AI 예제는 `GEMINI_API_KEY`(무료)가 없어도 **모의 모드**로 실행됩니다. AWS 관련 예제는 로컬에서 무료로 체험할 수 있도록 구성했으며, 실제 AWS 실행 시 비용 안내를 꼭 확인하세요.
-
----
-
-## �📁 저장소 구성
+## 📁 저장소 구성
 
 ```
 big1019-adv/
 ├── readme.md
-├── list.md                       # 심화 학습 주제 목록
-├── 01_생성형AI_활용개발/          # 각 폴더: README.md + 개념/ + 예제/
-├── 02_RPA_고급개발_연계자동화/
-├── 03_실전_코드리뷰_최적화/
-├── 04_MLOps_데이터엔지니어링/
-├── 05_보안_DevOps/
-└── docs/
-    ├── semi/                 # 세미 프로젝트
-    │   ├── 프로젝트_실행계획.md / .hwp
-    │   ├── 프로젝트_진행일지_*.hwpx
-    │   └── 산출물/           # 01 ~ 15 산출물 (md, pdf)
-    └── final/                # 파이널 프로젝트
-        ├── 프로젝트_실행계획.md / .hwp
-        ├── 프로젝트_진행일지_*.hwpx
-        └── 산출물/           # 01 ~ 19 산출물 (md, pdf)
+├── list.md                  # 학습 주제 목록
+├── requirements.txt         # 전체 예제 공통 패키지
+├── p01_생성형AI_활용개발/
+├── p02_RPA_고급개발_연계자동화/
+├── p03_실전_코드리뷰_최적화/
+├── p04_MLOps_데이터엔지니어링/
+└── p05_보안_DevOps/
 ```

@@ -1,7 +1,9 @@
 """RPA + AI 파이프라인: 수집(RPA) → 분류·요약(AI) → 사람 검토 분기 → 엑셀 보고서 + 알림 메일 초안.
 
 대상: 연습용 명언 사이트 quotes.toscrape.com
-실행: python pipeline.py --pages 2
+실행:
+  uvicorn web:app --reload          # 브라우저 → http://127.0.0.1:8000
+  python pipeline.py --pages 2      # 터미널 (--offline: 인터넷 없이 샘플 데이터)
 GEMINI_API_KEY 가 있으면 Gemini가 분류, 없으면 태그·키워드 규칙으로 분류(모의).
 """
 import argparse
@@ -21,6 +23,15 @@ OUT = Path(__file__).parent / "output"
 MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 THEMES = ["사랑", "인생", "성공", "유머", "지혜", "기타"]
 REVIEW_THRESHOLD = 0.6
+SAMPLE = [  # 인터넷이 안 될 때 쓰는 샘플 (사이트와 같은 형식)
+    ("The world as we have created it is a process of our thinking.", "Albert Einstein", ["change", "thinking"]),
+    ("It is our choices that show what we truly are.", "J.K. Rowling", ["abilities", "choices"]),
+    ("There are only two ways to live your life.", "Albert Einstein", ["inspirational", "life", "live"]),
+    ("A day without sunshine is like, you know, night.", "Steve Martin", ["humor", "obvious"]),
+    ("The person, be it gentleman or lady, who has not pleasure in a good novel, must be intolerably stupid.",
+     "Jane Austen", ["books", "humor"]),
+    ("Try not to become a man of success. Rather become a man of value.", "Albert Einstein", ["success", "value"]),
+]
 
 
 # ---------------------------------------------------------------- 1. RPA: 수집
@@ -39,6 +50,10 @@ def collect(pages, delay=1.0):
         print(f"[수집] {page}페이지 누적 {len(items)}건")
         time.sleep(delay)
     return items
+
+
+def sample_items():
+    return [{"id": i, "text": t, "author": a, "tags": tags} for i, (t, a, tags) in enumerate(SAMPLE, 1)]
 
 
 # ---------------------------------------------------------------- 2. AI: 분류
@@ -98,15 +113,21 @@ def report(df, mode):
                     f"사람 검토 필요: {len(review)}건 (확신도 {REVIEW_THRESHOLD} 미만)\n첨부 보고서를 확인하세요.")
     msg.add_attachment(xlsx.read_bytes(), maintype="application", subtype="octet-stream", filename=xlsx.name)
     (OUT / "notify.eml").write_bytes(bytes(msg))
-    return stats, review
+    return stats, review, f"제목: {msg['Subject']}\n\n{msg.get_body().get_content()}"
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--pages", type=int, default=2)
-    args = parser.parse_args()
+def run(pages, offline=False):
+    """수집 → 분류 → 보고 전체 실행. 각 단계의 결과를 dict로 반환."""
+    source = "샘플(오프라인)"
+    if offline:
+        items = sample_items()
+    else:
+        try:
+            items, source = collect(pages), "quotes.toscrape.com"
+        except requests.RequestException as e:  # 수집 실패 시 샘플로 대체하고 표시
+            print("수집 실패 → 샘플 데이터로 대체:", e)
+            items, source = sample_items(), "샘플(수집 실패 대체)"
 
-    items = collect(args.pages)
     use_ai = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
     mode = f"Gemini {MODEL}" if use_ai else "규칙 기반(모의)"
     try:
@@ -123,8 +144,19 @@ def main():
         "확신도": float(analysis.get(i["id"], {}).get("confidence", 0)),
         "요약": analysis.get(i["id"], {}).get("summary_ko", ""),
     } for i in items])
-    stats, review = report(df, mode)
-    print(f"\n{stats}\n\n사람 검토 필요 {len(review)}건 → {OUT / 'quotes_report.xlsx'} ('검토 필요' 시트)")
+    stats, review, mail = report(df, mode)
+    return {"source": source, "mode": mode, "df": df, "stats": stats, "review": review, "mail": mail}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pages", type=int, default=2)
+    parser.add_argument("--offline", action="store_true")
+    args = parser.parse_args()
+
+    r = run(args.pages, args.offline)
+    print(f"\n[수집] {r['source']} {len(r['df'])}건\n{r['stats']}\n")
+    print(f"사람 검토 필요 {len(r['review'])}건 → {OUT / 'quotes_report.xlsx'} ('검토 필요' 시트)")
     print(f"알림 메일 초안 → {OUT / 'notify.eml'}")
 
 

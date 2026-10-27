@@ -1,6 +1,7 @@
 """날씨 데이터 ETL 파이프라인: Open-Meteo 공개 API(무료·키 불필요) → 검증·정제 → SQLite 적재(UPSERT) → 일별 리포트.
 
 실행:
+  uvicorn web:app --reload                # 브라우저 → http://127.0.0.1:8000
   python pipeline.py --days 7             # 최근 7일 서울 시간별 기온·습도·강수량
   python pipeline.py --days 7 --offline   # 인터넷 없이 샘플 데이터로
   python pipeline.py --clean-only         # 실습용 오염(결측·이상치·중복) 주입 없이 원본 그대로
@@ -108,6 +109,28 @@ def daily_report():
             FROM weather_hourly GROUP BY date ORDER BY date""", conn)
 
 
+def run(days=7, offline=False, clean_only=False):
+    """E → (오염 주입) → T → 검증 → L → 리포트. 단계별 결과를 dict로 반환."""
+    start = datetime.now()
+    try:
+        raw = extract(days, offline)
+        source = "샘플(오프라인)" if offline else "Open-Meteo API"
+    except requests.RequestException as e:
+        print(f"API 호출 실패({e}) → 샘플 데이터로 대체")
+        raw, source = extract(days, offline=True), "샘플(API 실패 대체)"
+    extracted = len(raw)
+    if not clean_only:
+        raw = inject_dirty_data(raw)
+
+    df, report = transform(raw)
+    validate(df)  # 품질 기준을 못 넘으면 예외 → 적재하지 않음
+    total = load(df)
+    out = daily_report()
+    out.to_csv(BASE / "daily_report.csv", index=False, encoding="utf-8-sig")
+    return {"source": source, "extracted": extracted, "transform": report, "loaded": len(df), "total": total,
+            "daily": out, "seconds": round((datetime.now() - start) / timedelta(seconds=1), 1)}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=7)
@@ -115,28 +138,13 @@ def main():
     parser.add_argument("--clean-only", action="store_true")
     args = parser.parse_args()
 
-    start = datetime.now()
-    try:
-        raw = extract(args.days, args.offline)
-        source = "샘플(오프라인)" if args.offline else "Open-Meteo API"
-    except requests.RequestException as e:
-        print(f"API 호출 실패({e}) → 샘플 데이터로 대체")
-        raw, source = extract(args.days, offline=True), "샘플(API 실패 대체)"
-    print(f"[Extract]   {source}: {len(raw)}행")
-    if not args.clean_only:
-        raw = inject_dirty_data(raw)
-
-    df, report = transform(raw)
-    print("[Transform] " + " / ".join(f"{k} {v}" for k, v in report.items()))
-    validate(df)
+    r = run(args.days, args.offline, args.clean_only)
+    print(f"[Extract]   {r['source']}: {r['extracted']}행")
+    print("[Transform] " + " / ".join(f"{k} {v}" for k, v in r["transform"].items()))
     print("[Validate]  통과")
-    total = load(df)
-    print(f"[Load]      {len(df)}행 적재 → {DB.name} (테이블 누적 {total}행)")
-
-    out = daily_report()
-    out.to_csv(BASE / "daily_report.csv", index=False, encoding="utf-8-sig")
-    print(f"\n{CITY['name']} 일별 날씨 리포트 (소요 {(datetime.now() - start) / timedelta(seconds=1):.1f}초)")
-    print(out.to_string(index=False))
+    print(f"[Load]      {r['loaded']}행 적재 → {DB.name} (테이블 누적 {r['total']}행)")
+    print(f"\n{CITY['name']} 일별 날씨 리포트 (소요 {r['seconds']}초)")
+    print(r["daily"].to_string(index=False))
 
 
 if __name__ == "__main__":

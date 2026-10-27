@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>OpenAI 고객센터 챗봇</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 760px; margin: 30px auto; padding: 0 16px; color: #222; }
+  #chat { border: 1px solid #ddd; border-radius: 8px; height: 320px; overflow-y: auto; padding: 10px; background: #fafafa; }
+  .msg { margin: 6px 0; padding: 8px 12px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; }
+  .user { background: #2e5597; color: #fff; margin-left: auto; }
+  .assistant { background: #e9eef6; }
+  .row { display: flex; gap: 6px; margin-top: 8px; }
+  input { flex: 1; padding: 8px; font-size: 14px; }
+  button { padding: 8px 16px; cursor: pointer; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 12px; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>고객센터 챗봇 <small class="muted" id="mode"></small></h1>
+
+<div id="chat"></div>
+<div class="row">
+  <input id="q" placeholder="예: 환불하고 싶어요" autofocus>
+  <button onclick="send()">보내기</button>
+  <button onclick="resetChat()">새 대화</button>
+</div>
+<p class="muted" id="usage">토큰 사용량이 여기에 표시됩니다.</p>
+
+<h3>서버로 보낸 history <small class="muted">(LLM은 기억이 없어서 매번 전체 대화를 다시 보냅니다)</small></h3>
+<pre id="history">[]</pre>
+
+<script>
+let history = [];
+const $ = id => document.getElementById(id);
+
+function render() {
+  $('chat').innerHTML = '';
+  history.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'msg ' + m.role;
+    div.textContent = m.content;           // textContent: HTML 태그가 실행되지 않게(XSS 방지)
+    $('chat').appendChild(div);
+  });
+  $('chat').scrollTop = $('chat').scrollHeight;
+  $('history').textContent = JSON.stringify(history, null, 2);
+}
+
+async function send() {
+  const content = $('q').value.trim();
+  if (!content) return;
+  history.push({ role: 'user', content });
+  $('q').value = '';
+  render();
+  const res = await fetch('/api/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ history }),
+  });
+  if (!res.ok) { alert('오류: ' + res.status); history.pop(); return render(); }
+  const data = await res.json();
+  history.push({ role: 'assistant', content: data.answer });
+  $('usage').textContent = `토큰 사용량: 입력 ${data.usage.input_tokens} / 출력 ${data.usage.output_tokens}  (대화가 길어질수록 입력이 커집니다)`;
+  render();
+}
+
+function resetChat() { history = []; render(); }
+
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+fetch('/api/mode').then(r => r.json()).then(d => $('mode').textContent = d.mode);
+</script>
+</body>
+</html>

@@ -1,13 +1,20 @@
-"""모델 서빙 API (FastAPI).  실행: uvicorn app:app --reload  →  http://127.0.0.1:8000/docs"""
+"""모델 서빙 API (FastAPI).
+
+실행: python train.py  →  uvicorn app:app --reload
+  http://127.0.0.1:8000       : 예측 화면
+  http://127.0.0.1:8000/docs  : API 문서
+"""
 import json
 import time
 from pathlib import Path
 
 import joblib
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-MODEL_DIR = Path(__file__).parent / "model"
+BASE = Path(__file__).parent
+MODEL_DIR = BASE / "model"
 if not (MODEL_DIR / "model.joblib").exists():
     raise RuntimeError("모델 파일이 없습니다. 먼저 `python train.py` 를 실행하세요.")
 
@@ -25,6 +32,11 @@ class Flower(BaseModel):
 
 class Batch(BaseModel):
     items: list[Flower] = Field(min_length=1, max_length=100)
+
+
+@app.get("/")
+def index():
+    return FileResponse(BASE / "index.html")
 
 
 @app.get("/health")
@@ -45,6 +57,8 @@ def predict(batch: Batch):
         probs = model.predict_proba(rows)
     except Exception as e:
         raise HTTPException(500, f"예측 실패: {e}") from e
-    results = [{"class": meta["classes"][p.argmax()], "probability": round(float(p.max()), 4)} for p in probs]
+    results = [{"class": meta["classes"][p.argmax()], "probability": round(float(p.max()), 4),
+                "probabilities": {c: round(float(v), 4) for c, v in zip(meta["classes"], p, strict=True)}}
+               for p in probs]
     return {"model_version": meta["version"], "latency_ms": round((time.perf_counter() - start) * 1000, 2),
             "predictions": results}

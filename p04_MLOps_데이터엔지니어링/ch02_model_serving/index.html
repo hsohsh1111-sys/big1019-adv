@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Iris 분류 API</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 860px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; }
+  label { display: block; margin: 10px 0 2px; font-size: 14px; }
+  input[type=range] { width: 75%; vertical-align: middle; }
+  output { display: inline-block; width: 50px; text-align: right; font-weight: bold; }
+  button { padding: 6px 10px; margin: 4px 4px 0 0; cursor: pointer; }
+  .result { font-size: 28px; font-weight: bold; color: #2e5597; margin: 10px 0; }
+  .bar { height: 18px; background: #4a7bd0; display: inline-block; vertical-align: middle; }
+  .row { margin: 6px 0; font-size: 14px; } .row span.name { display: inline-block; width: 90px; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; }
+  .err { color: #d93025; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>붓꽃(Iris) 분류 API <small class="muted" id="version"></small></h1>
+<p class="muted">꽃받침(sepal)·꽃잎(petal)의 길이·너비(cm)를 조절하면 서버의 <code>POST /predict</code> 가 품종을 예측합니다. <a href="/docs" target="_blank">API 문서(/docs)</a></p>
+
+<div class="grid">
+  <div class="card">
+    <h3>입력 (cm)</h3>
+    <div id="inputs"></div>
+    <div>
+      예시:
+      <button onclick="preset([5.1, 3.5, 1.4, 0.2])">setosa</button>
+      <button onclick="preset([6.0, 2.9, 4.5, 1.5])">versicolor</button>
+      <button onclick="preset([7.7, 3.0, 6.1, 2.3])">virginica</button>
+      <button onclick="sendBad()">잘못된 입력(-1)</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>예측 결과</h3>
+    <div class="result" id="result">-</div>
+    <div id="probs"></div>
+    <p class="muted" id="latency"></p>
+    <pre id="raw"></pre>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const FEATURES = [['sepal_length', '꽃받침 길이', 4, 8], ['sepal_width', '꽃받침 너비', 2, 4.5], ['petal_length', '꽃잎 길이', 1, 7], ['petal_width', '꽃잎 너비', 0.1, 2.5]];
+
+FEATURES.forEach(([key, label, min, max]) => {
+  $('inputs').insertAdjacentHTML('beforeend',
+    `<label>${label} (${key})</label><input type="range" id="${key}" min="${min}" max="${max}" step="0.1" value="${((min + max) / 2).toFixed(1)}"> <output id="${key}_v"></output>`);
+});
+FEATURES.forEach(([key]) => $(key).addEventListener('input', predict));
+
+function preset(values) { FEATURES.forEach(([key], i) => $(key).value = values[i]); predict(); }
+
+async function call(item) {
+  const res = await fetch('/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: [item] }) });
+  const data = await res.json();
+  $('raw').textContent = `POST /predict → ${res.status}\n` + JSON.stringify(data, null, 2);
+  return { ok: res.ok, data };
+}
+
+async function predict() {
+  const item = Object.fromEntries(FEATURES.map(([key]) => { $(key + '_v').textContent = $(key).value; return [key, Number($(key).value)]; }));
+  const { ok, data } = await call(item);
+  if (!ok) return;
+  const p = data.predictions[0];
+  $('result').textContent = `${p.class} (${(p.probability * 100).toFixed(1)}%)`;
+  $('result').className = 'result';
+  $('probs').innerHTML = Object.entries(p.probabilities).map(([c, v]) =>
+    `<div class="row"><span class="name">${c}</span><span class="bar" style="width:${v * 250}px"></span> ${(v * 100).toFixed(1)}%</div>`).join('');
+  $('latency').textContent = `모델 버전 ${data.model_version} · 서버 처리 ${data.latency_ms}ms`;
+}
+
+async function sendBad() {
+  await call({ sepal_length: -1, sepal_width: 3.5, petal_length: 1.4, petal_width: 0.2 });
+  $('result').textContent = '422 입력 검증 실패';
+  $('result').className = 'result err';
+  $('probs').innerHTML = '';
+}
+
+fetch('/model-info').then(r => r.json()).then(m => $('version').textContent = `모델 v${m.version} · 정확도 ${m.accuracy}`);
+predict();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>FastAPI + SQLAlchemy 회원 관리</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 720px; margin: 30px auto; padding: 0 16px; color: #222; }
+  input, button { padding: 8px; font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #dce6f2; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>회원 관리 <small class="muted">FastAPI + SQLAlchemy (ex02_sqlalchemy.py)</small></h1>
+
+<input type="text" id="name" placeholder="이름" aria-label="이름">
+<label for="email">이메일</label>
+<input type="email" id="email" placeholder="이메일">
+<button id="btnCreate">등록 (POST /users/)</button>
+<button id="btnLoad">새로고침 (GET /users/)</button>
+
+<h3>서버 응답</h3>
+<pre id="response">-</pre>
+
+<h3>회원 목록</h3>
+<table><thead><tr><th>id</th><th>이름</th><th>이메일</th></tr></thead><tbody id="users"></tbody></table>
+<p class="muted">API 문서: <a href="/docs" target="_blank">/docs</a></p>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+
+async function createUser() {
+  // ex02 의 create_user(name: str, email: str) 는 쿼리 매개변수로 값을 받는다
+  const params = new URLSearchParams({ name: $('name').value, email: $('email').value });
+  const res = await fetch('/users/?' + params, { method: 'POST' });
+  $('response').textContent = `POST /users/?${params} → ${res.status}\n` + JSON.stringify(await res.json(), null, 2);
+  if (res.ok) { $('name').value = ''; $('email').value = ''; loadUsers(); }
+}
+
+async function loadUsers() {
+  const users = await (await fetch('/users/')).json();
+  $('users').innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    [u.id, u.name, u.email].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+    $('users').appendChild(tr);
+  });
+}
+
+  $('btnCreate').addEventListener('click', createUser);
+  $('btnLoad').addEventListener('click', loadUsers);
+  await loadUsers();
+</script>
+</body>
+</html>

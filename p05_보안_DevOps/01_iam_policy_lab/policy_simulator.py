@@ -4,7 +4,9 @@ AWS 정책 평가 규칙을 단순화해 구현했다.
   1) 기본은 거부(묵시적 Deny)  2) Allow가 있으면 허용  3) 명시적 Deny가 하나라도 있으면 무조건 거부
 지원: Action/Resource 와일드카드(*), Condition의 Bool·IpAddress·StringEquals
 
-실행: python policy_simulator.py            # 시나리오 일괄 판정 + 과도한 권한 점검
+실행:
+  uvicorn web:app --reload          # 브라우저 시뮬레이터 → http://127.0.0.1:8000
+  python policy_simulator.py        # 시나리오 일괄 판정 + 과도한 권한 점검 (표준 라이브러리만 사용)
 """
 import ipaddress
 import json
@@ -84,8 +86,12 @@ SCENARIOS = [
 ]
 
 
+def load_policies():
+    return {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted(POLICY_DIR.glob("*.json"))}
+
+
 def main():
-    policies = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in POLICY_DIR.glob("*.json")}
+    policies = load_policies()
     print("■ 시나리오 판정\n")
     for desc, names, action, resource, ctx in SCENARIOS:
         decision, reason = evaluate({n: policies[n] for n in names}, action, resource, ctx)

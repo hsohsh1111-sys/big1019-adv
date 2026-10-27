@@ -3,8 +3,9 @@
 - 키가 있으면: Gemini 생성 요약 + JSON 구조화 추출 (긴 문서는 Map-Reduce)
 - 키가 없으면: 단어 빈도 기반 추출 요약 + 정규식 추출 (완전 무료·오프라인)
 
-실행: python summarize.py sample_meeting.txt
-결과: output/summary.txt, output/report.md
+실행:
+  uvicorn web:app --reload               # 브라우저 → http://127.0.0.1:8000
+  python summarize.py sample_meeting.txt # 터미널 → output/summary.txt, output/report.md
 """
 import json
 import os
@@ -94,23 +95,27 @@ def render_report(info, summary, mode):
     return "\n".join(lines)
 
 
-def main():
-    src = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).parent / "sample_meeting.txt")
-    text = src.read_text(encoding="utf-8")
+def summarize(text):
+    """요약 + 정보 추출 + 보고서 생성. 키가 있으면 Gemini, 없으면 오프라인 방식."""
     if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
         mode, summary, info = f"Gemini ({MODEL})", llm_summary(text), llm_extract(text)
     else:
         mode, summary, info = "추출 요약 (오프라인)", extractive_summary(text), regex_extract(text)
+    missing = [k for k in ("title", "decisions", "todos") if not info.get(k)]  # 추출 결과 검증
+    return {"mode": mode, "summary": summary, "info": info, "missing": missing,
+            "report": render_report(info, summary, mode)}
 
-    missing = [k for k in ("title", "decisions", "todos") if not info.get(k)]
-    if missing:
-        print("⚠ 추출되지 않은 항목:", missing)
+
+def main():
+    src = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).parent / "sample_meeting.txt")
+    result = summarize(src.read_text(encoding="utf-8"))
+    if result["missing"]:
+        print("⚠ 추출되지 않은 항목:", result["missing"])
 
     OUT.mkdir(exist_ok=True)
-    (OUT / "summary.txt").write_text(summary, encoding="utf-8")
-    report = render_report(info, summary, mode)
-    (OUT / "report.md").write_text(report, encoding="utf-8")
-    print(report)
+    (OUT / "summary.txt").write_text(result["summary"], encoding="utf-8")
+    (OUT / "report.md").write_text(result["report"], encoding="utf-8")
+    print(result["report"])
     print(f"\n저장 완료: {OUT / 'summary.txt'}, {OUT / 'report.md'}")
 
 

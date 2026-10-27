@@ -1,5 +1,6 @@
-# 클라우드 비용 0원 Terraform 실습: local Provider로 "환경별 설정 파일"이라는 인프라를 코드로 관리
+# 클라우드 비용 0원 Terraform 실습: local Provider로 "환경별 설정 파일 + 대시보드"라는 인프라를 코드로 관리
 #   terraform init → terraform plan → terraform apply → (변수 수정) → plan → apply → terraform destroy
+#   apply 후 브라우저로 out/index.html 열기
 
 terraform {
   required_version = ">= 1.5"
@@ -37,6 +38,7 @@ variable "environments" {
 
 locals {
   common_tags = { Project = var.project, ManagedBy = "terraform" }
+  api_urls    = { for env in keys(var.environments) : env => "https://${env == "prod" ? "" : "${env}."}api.${var.project}.example.com" }
 }
 
 # for_each: 환경 수만큼 자원을 반복 생성
@@ -49,7 +51,7 @@ resource "local_file" "env_config" {
     InstanceCount = each.value.instance_count
     InstanceType  = each.value.instance_type
     Debug         = each.value.debug
-    ApiUrl        = "https://${each.key == "prod" ? "" : "${each.key}."}api.${var.project}.example.com"
+    ApiUrl        = local.api_urls[each.key]
   }))
 }
 
@@ -58,10 +60,26 @@ resource "local_file" "readme" {
   content  = "이 폴더는 Terraform이 관리합니다. 직접 수정하지 마세요.\n환경: ${join(", ", keys(var.environments))}\n"
 }
 
+# templatefile: 템플릿 파일에 변수를 채워 HTML 대시보드 생성 → 브라우저로 확인
+resource "local_file" "dashboard" {
+  filename = "${path.module}/out/index.html"
+  content = templatefile("${path.module}/dashboard.html.tftpl", {
+    project      = var.project
+    environments = var.environments
+    api_urls     = local.api_urls
+    total        = sum([for e in values(var.environments) : e.instance_count])
+  })
+}
+
 output "config_files" {
   value = { for env, f in local_file.env_config : env => f.filename }
 }
 
 output "total_instances" {
   value = sum([for e in values(var.environments) : e.instance_count])
+}
+
+output "dashboard" {
+  description = "브라우저로 열어 보세요"
+  value       = abspath(local_file.dashboard.filename)
 }

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>정적 분석 실습</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 1100px; margin: 30px auto; padding: 0 16px; color: #222; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; margin: 14px 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .code { background: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; font-size: 12px; border-radius: 6px; padding: 8px 0; max-height: 460px; overflow: auto; }
+  .code div { white-space: pre; padding: 0 10px; }
+  .code .hit { background: #5a1d1d; }
+  .code span.no { color: #858585; display: inline-block; width: 28px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #dce6f2; }
+  button, input { padding: 7px 12px; font-size: 14px; }
+  pre { background: #f6f8fa; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; }
+  .ok { color: #188038; font-weight: bold; } .bad { color: #d93025; font-weight: bold; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>정적 분석 — 실행하지 않고 코드의 버그·보안 문제 찾기</h1>
+
+<section>
+  <h2>① ruff 정적 분석 <small class="muted">ruff.toml 규칙: E, W, F, B, S(보안), C90(복잡도), SIM, UP</small></h2>
+  <button onclick="analyze('legacy_app.py')">❌ legacy_app.py 분석</button>
+  <button onclick="analyze('fixed_app.py')">✅ fixed_app.py 분석</button>
+  <span id="summary"></span>
+  <div class="grid" style="margin-top:10px">
+    <div class="code" id="code"></div>
+    <div><table><thead><tr><th>줄</th><th>규칙</th><th>메시지</th></tr></thead><tbody id="findings"></tbody></table></div>
+  </div>
+</section>
+
+<section>
+  <h2>② 왜 위험할까? — S608 SQL 인젝션 직접 해보기</h2>
+  <p class="muted">사용자 이름으로 회원 1명을 조회하는 기능입니다. 정상 입력 <code>kim</code>, 공격 입력 <code>' OR '1'='1</code> 을 넣어 보세요.</p>
+  이름 <input id="name" value="kim" style="width:240px">
+  <button onclick="find('unsafe')">❌ legacy get_user (문자열 연결)</button>
+  <button onclick="find('safe')">✅ fixed get_user (파라미터 바인딩)</button>
+  <pre id="sql">실행된 SQL과 결과가 여기에 표시됩니다.</pre>
+</section>
+
+<section>
+  <h2>③ SonarQube <small class="muted">(선택, Docker 필요)</small></h2>
+  <p>팀 단위로 품질을 <b>대시보드</b>로 관리하는 도구입니다. README의 "SonarQube로 분석하기"를 따라 <a href="http://localhost:9000" target="_blank">http://localhost:9000</a> 에서 같은 문제들이 Bug / Vulnerability / Code Smell 로 분류되는 것을 확인하세요.</p>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function analyze(file) {
+  const [{ code }, result] = await Promise.all([
+    fetch('/api/code?file=' + file).then(r => r.json()),
+    fetch('/api/ruff?file=' + file).then(r => r.json()),
+  ]);
+  if (result.error) { $('summary').innerHTML = `<span class="bad">${result.error}</span>`; return; }
+  const hitLines = new Set(result.findings.map(f => f.line));
+  $('summary').innerHTML = result.findings.length
+    ? `<span class="bad">${file}: ${result.findings.length}건 발견</span>` : `<span class="ok">${file}: ✔ 0건</span>`;
+  $('code').innerHTML = '';
+  code.split('\n').forEach((line, i) => {
+    const div = document.createElement('div');
+    if (hitLines.has(i + 1)) div.className = 'hit';
+    const no = document.createElement('span'); no.className = 'no'; no.textContent = i + 1;
+    div.append(no, line);
+    $('code').appendChild(div);
+  });
+  $('findings').innerHTML = '';
+  result.findings.forEach(f => {
+    const tr = document.createElement('tr');
+    const rule = document.createElement('a');
+    rule.textContent = f.code; rule.href = f.url || '#'; rule.target = '_blank';
+    [f.line, rule, f.message].forEach(v => { const td = document.createElement('td'); td.append(v); tr.appendChild(td); });
+    $('findings').appendChild(tr);
+  });
+}
+
+async function find(mode) {
+  const name = $('name').value;
+  const r = await (await fetch(`/api/users?mode=${mode}&name=` + encodeURIComponent(name))).json();
+  const query = mode === 'unsafe'
+    ? `SELECT * FROM users WHERE name = '${name}'          ← 입력이 SQL 문장의 일부가 됨`
+    : `SELECT * FROM users WHERE name = ?          ← 값 ${JSON.stringify(name)} 은 따로 전달 (그냥 글자로 취급)`;
+  $('sql').textContent = `실행된 SQL:\n  ${query}\n\n` + (r.error ? `오류: ${r.error}` : `결과: ${r.row ? JSON.stringify(r.row) : '없음'}`);
+  if (r.row && r.row[1] === 'admin' && name !== 'admin') $('sql').textContent += '\n\n⚠ 이름을 몰라도 관리자 계정이 조회되었습니다!';
+}
+
+analyze('legacy_app.py');
+</script>
+</body>
+</html>

@@ -20,3 +20,8 @@ def test_empty_cart_is_zero():
 def test_api_validation():
     assert client.post("/cart/total", json=[{"price": 1000, "qty": 1}]).json() == {"total": 4000}
     assert client.post("/cart/total", json=[{"price": -1, "qty": 1}]).status_code == 422
+
+
+def test_index_and_health():
+    assert "text/html" in client.get("/").headers["content-type"]
+    assert client.get("/health").json()["status"] == "ok"

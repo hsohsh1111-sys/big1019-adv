@@ -10,6 +10,11 @@ def test_health():
     assert client.get("/health").json()["status"] == "ok"
 
 
+def test_index_page():
+    res = client.get("/")
+    assert res.status_code == 200 and "text/html" in res.headers["content-type"]
+
+
 def test_predict_setosa_and_virginica():
     body = {"items": [
         {"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2},
@@ -17,7 +22,9 @@ def test_predict_setosa_and_virginica():
     ]}
     res = client.post("/predict", json=body)
     assert res.status_code == 200
-    assert [p["class"] for p in res.json()["predictions"]] == ["setosa", "virginica"]
+    predictions = res.json()["predictions"]
+    assert [p["class"] for p in predictions] == ["setosa", "virginica"]
+    assert abs(sum(predictions[0]["probabilities"].values()) - 1) < 0.01  # 클래스별 확률의 합 = 1
 
 
 def test_invalid_input_rejected():

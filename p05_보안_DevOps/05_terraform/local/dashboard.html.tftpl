@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>${project} 인프라 대시보드</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 860px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .env { border: 1px solid #ddd; border-left: 6px solid #7b42bc; border-radius: 8px; padding: 10px 16px; margin: 12px 0; }
+  .server { display: inline-block; width: 34px; height: 34px; margin: 4px; border-radius: 6px; background: #7b42bc; color: #fff; text-align: center; line-height: 34px; font-size: 12px; }
+  .debug { color: #d93025; font-weight: bold; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>${project} 환경 구성 <small class="muted">Terraform이 생성한 파일입니다 — 직접 수정하지 마세요</small></h1>
+<p>환경 ${length(environments)}개 · 총 인스턴스 <b>${total}</b>대</p>
+%{ for name, env in environments ~}
+<div class="env">
+  <h2>${name} <small class="muted">${env.instance_type}</small>%{ if env.debug } <span class="debug">DEBUG</span>%{ endif }</h2>
+  <div>%{ for i in range(env.instance_count) }<span class="server">${i + 1}</span>%{ endfor }</div>
+  <p class="muted">API: ${api_urls[name]} · 설정 파일: out/${name}/config.json</p>
+</div>
+%{ endfor ~}
+<p class="muted">main.tf 의 environments 를 바꾸고 terraform apply → 이 페이지를 새로고침하세요.</p>
+</body>
+</html>

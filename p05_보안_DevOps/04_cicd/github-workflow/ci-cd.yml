@@ -43,7 +43,7 @@ jobs:
       - name: Lowercase image name   # Docker 이미지 이름은 소문자만 허용 (저장소 이름에 대문자가 있을 수 있음)
         run: echo "IMAGE=${IMAGE,,}" >> "$GITHUB_ENV"
       - name: Build image
-        run: docker build -t $IMAGE:${{ github.sha }} .
+        run: docker build --build-arg APP_VERSION=${{ github.sha }} -t $IMAGE:${{ github.sha }} .
       - name: Scan image (Trivy)
         uses: aquasecurity/trivy-action@0.28.0
         with:

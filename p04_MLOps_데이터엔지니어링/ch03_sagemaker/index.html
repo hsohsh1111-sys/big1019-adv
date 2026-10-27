@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>SageMaker 로컬 체험</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 1080px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; }
+  .aws { border-top: 4px solid #ff9900; }
+  input, textarea { padding: 6px 8px; font-size: 14px; }
+  textarea { width: 100%; box-sizing: border-box; font-family: Consolas, monospace; }
+  button { padding: 7px 14px; cursor: pointer; margin-top: 6px; }
+  .stage { border-left: 4px solid #ff9900; background: #fff8ec; padding: 6px 10px; margin: 8px 0; }
+  .stage b { color: #b36b00; }
+  pre { background: #232f3e; color: #e6e6e6; padding: 8px; border-radius: 6px; white-space: pre-wrap; font-size: 12px; margin: 4px 0; }
+  .muted { color: #888; font-size: 13px; }
+  .err { color: #d93025; }
+</style>
+</head>
+<body>
+<h1>SageMaker 학습 → 배포 흐름 로컬 체험 <small class="muted">AWS 계정·비용 없이</small></h1>
+
+<div class="grid">
+  <div class="card aws">
+    <h2>① Training Job</h2>
+    <p class="muted">SageMaker는 학습용 컨테이너를 띄우고 데이터 위치·모델 저장 위치를 <b>SM_* 환경 변수</b>로 알려준 뒤 <code>train.py</code>를 실행합니다. 학습이 끝나면 인스턴스는 자동 종료됩니다.</p>
+    n_estimators <input id="n" type="number" value="50" style="width:70px">
+    learning_rate <input id="lr" type="number" value="0.1" step="0.05" style="width:70px">
+    <button onclick="train()">Training Job 실행</button>
+    <div id="job"></div>
+  </div>
+
+  <div class="card aws">
+    <h2>② Endpoint 호출</h2>
+    <p class="muted">배포된 엔드포인트는 요청마다 <code>inference.py</code>의 4개 함수를 순서대로 호출합니다. 한 줄에 꽃 1개 (꽃받침 길이, 너비, 꽃잎 길이, 너비).</p>
+    <textarea id="instances" rows="3">5.1, 3.5, 1.4, 0.2
+6.7, 3.0, 5.2, 2.3</textarea>
+    <button onclick="invoke()">predictor.predict() 호출</button>
+    <div id="stages"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  .then(async r => ({ ok: r.ok, data: await r.json() }));
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const stage = (title, body) => `<div class="stage"><b>${title}</b><pre>${esc(body)}</pre></div>`;
+
+async function train() {
+  $('job').innerHTML = '<p>학습 중...</p>';
+  const { ok, data } = await post('/api/training-job', { n_estimators: Number($('n').value), learning_rate: Number($('lr').value) });
+  if (!ok) return $('job').innerHTML = `<p class="err">${esc(JSON.stringify(data.detail))}</p>`;
+  $('job').innerHTML =
+    stage('1. 데이터 채널 (S3 → /opt/ml/input/data/train)', `train.csv ${data.rows}행`) +
+    stage('2. 환경 변수', Object.entries(data.env).map(([k, v]) => `${k}=${v}`).join('\n')) +
+    stage('3. 실행 명령 (hyperparameters → 인자)', data.command) +
+    stage('4. 학습 로그 (metric_definitions 정규식으로 수집)', data.log) +
+    stage('5. SM_MODEL_DIR → S3 model.tar.gz', data.model_files.join(', ') + '\nmetrics.json: ' + JSON.stringify(data.metrics));
+}
+
+async function invoke() {
+  const instances = $('instances').value.trim().split('\n').map(l => l.split(',').map(Number));
+  const { ok, data } = await post('/api/invoke', { instances });
+  if (!ok) return $('stages').innerHTML = `<p class="err">${esc(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))}</p>`;
+  $('stages').innerHTML =
+    stage('요청 본문 (JSON)', data.request) +
+    stage('model_fn(model_dir) → 모델 로딩', 'joblib.load(model.joblib)') +
+    stage('input_fn(body) → 모델 입력', JSON.stringify(data.input_fn)) +
+    stage('predict_fn(input, model) → 예측', JSON.stringify(data.predict_fn, null, 1)) +
+    stage('output_fn(prediction) → 응답 본문', data.response);
+}
+</script>
+</body>
+</html>

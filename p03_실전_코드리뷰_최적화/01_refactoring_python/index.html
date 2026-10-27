@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>리팩토링 전/후 비교</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; max-width: 1100px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  pre { background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 6px; font-size: 12px; overflow: auto; max-height: 420px; }
+  h3.bad { color: #d93025; } h3.good { color: #188038; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 10px 16px; margin: 14px 0; }
+  button, input { padding: 7px 12px; font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; }
+  th { background: #dce6f2; }
+  .bar { height: 12px; display: inline-block; vertical-align: middle; }
+  .b { background: #d93025; } .a { background: #188038; }
+  .ok { color: #188038; font-weight: bold; } .fail { color: #d93025; font-weight: bold; }
+  .out { background: #f6f8fa; color: #222; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>코드 리뷰 & 리팩토링 — 전/후 비교</h1>
+
+<div class="grid">
+  <div><h3 class="bad">❌ before.py</h3><pre id="before"></pre></div>
+  <div><h3 class="good">✅ after.py</h3><pre id="after"></pre></div>
+</div>
+
+<section>
+  <h2>① 결과가 같은가? <small class="muted">리팩토링 = 동작은 그대로, 코드만 개선</small></h2>
+  주문 수 <input id="n" type="number" value="1000" style="width:90px"> <button onclick="compare()">비교</button>
+  <p id="compare"></p>
+</section>
+
+<section>
+  <h2>② 얼마나 빨라졌나? <small class="muted">O(n²) → O(n)</small></h2>
+  주문 수 목록 <input id="sizes" value="500, 1000, 2000, 4000" style="width:220px"> <button onclick="bench()">벤치마크 실행</button>
+  <span id="bstatus" class="muted"></span>
+  <table style="margin-top:8px"><thead><tr><th>주문 수</th><th>before (ms)</th><th>after (ms)</th><th>배수</th><th>시간 그래프</th></tr></thead><tbody id="bench"></tbody></table>
+</section>
+
+<section>
+  <h2>③ 안전망: 자동 테스트 <small class="muted">pytest test_refactoring.py</small></h2>
+  <button onclick="test()">테스트 실행</button> <span id="tstatus"></span>
+  <pre id="tout" class="out" style="display:none"></pre>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function compare() {
+  const r = await (await fetch('/api/compare?n=' + $('n').value)).json();
+  $('compare').innerHTML = `${r.same ? '<span class="ok">✔ 결과 동일</span>' : '<span class="fail">✘ 결과 다름</span>'}
+    — 총 매출 before ${r.before_total.toLocaleString()}원 / after ${r.after_total.toLocaleString()}원, 중복 주문번호 ${r.duplicates}개`;
+}
+
+async function bench() {
+  const sizes = $('sizes').value.split(',').map(s => Number(s.trim())).filter(Boolean);
+  $('bstatus').textContent = '측정 중... (before가 느려서 몇 초 걸립니다)';
+  const rows = await (await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sizes }) })).json();
+  $('bstatus').textContent = '주문 수가 2배일 때 before는 약 4배, after는 약 2배로 늘어나는지 보세요.';
+  const max = Math.max(...rows.map(r => r.before_ms));
+  $('bench').innerHTML = rows.map(r => `<tr><td>${r.n}</td><td>${r.before_ms}</td><td>${r.after_ms}</td><td>${r.speedup}배</td>
+    <td><span class="bar b" style="width:${r.before_ms / max * 300}px"></span><br><span class="bar a" style="width:${Math.max(r.after_ms / max * 300, 1)}px"></span></td></tr>`).join('');
+}
+
+async function test() {
+  $('tstatus').textContent = '실행 중...';
+  const r = await (await fetch('/api/test', { method: 'POST' })).json();
+  $('tstatus').innerHTML = r.passed ? '<span class="ok">✔ 모두 통과</span>' : '<span class="fail">✘ 실패</span>';
+  $('tout').style.display = 'block';
+  $('tout').textContent = r.output;
+}
+
+fetch('/api/code').then(r => r.json()).then(d => { $('before').textContent = d.before; $('after').textContent = d.after; });
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 """내 PC에서만 동작하는 테스트 메일 서버 (실제 발송 X).
 
 받은 메일을 inbox/ 폴더에 .eml 파일로 저장한다. .eml 은 Outlook·Thunderbird 또는 메모장으로 열 수 있다.
-실행: python mail_server.py   (종료: Ctrl+C)
+실행: python mail_server.py   (종료: Ctrl+C)   ※ uvicorn web:app 으로 실행하면 자동으로 함께 켜진다.
 """
 import time
 from datetime import datetime
@@ -29,6 +29,18 @@ def start():
     controller = Controller(SaveToInbox(), hostname=HOST, port=PORT)
     controller.start()
     return controller
+
+
+def read_inbox():
+    """받은 편지함의 .eml 파일을 읽어 최신순 목록으로 반환."""
+    mails = []
+    for path in sorted(INBOX.glob("*.eml"), reverse=True):
+        msg = message_from_bytes(path.read_bytes(), policy=policy.default)
+        body = msg.get_body(preferencelist=("plain", "html"))
+        mails.append({"file": path.name, "to": msg["To"], "subject": msg["Subject"],
+                      "body": body.get_content() if body else "",
+                      "attachments": [p.get_filename() for p in msg.iter_attachments()]})
+    return mails
 
 
 if __name__ == "__main__":

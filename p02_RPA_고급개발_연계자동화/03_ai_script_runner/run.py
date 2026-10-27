@@ -1,6 +1,7 @@
 """자연어 지시 → (LLM) JSON 실행 계획 → 검증 → 미리보기 → 실행 하는 안전한 파일 정리 자동화.
 
 실행:
+  uvicorn web:app --reload                                                           # 브라우저 → http://127.0.0.1:8000
   python run.py "pdf는 documents 폴더로 옮기고 이름 앞에 오늘 날짜를 붙여줘"        # 미리보기(dry-run)
   python run.py "pdf는 documents 폴더로 옮기고 이름 앞에 오늘 날짜를 붙여줘" --yes  # 실제 실행
   python run.py --plan evil_plan.json                                                # 위험한 계획이 거부되는지 확인
@@ -40,7 +41,13 @@ def reset_sandbox():
     SANDBOX.mkdir()
     for name in ["report.pdf", "invoice_10월.pdf", "photo1.jpg", "photo2.png", "memo.txt", "data.xlsx"]:
         (SANDBOX / name).write_text(f"sample file: {name}", encoding="utf-8")
-    print(f"연습 폴더 초기화: {sorted(p.name for p in SANDBOX.iterdir())}")
+    print(f"연습 폴더 초기화: {list_files()}")
+
+
+def list_files():
+    if not SANDBOX.exists():
+        reset_sandbox()
+    return sorted(p.relative_to(SANDBOX).as_posix() + ("/" if p.is_dir() else "") for p in SANDBOX.rglob("*"))
 
 
 # ------------------------------------------------------------------ 1. 계획 만들기
@@ -71,9 +78,16 @@ def plan_with_rules(request):
     return plan
 
 
+def make_plan(request):
+    """(계획, 만든 방식) 반환. 키가 있으면 Gemini, 없으면 규칙 기반."""
+    if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+        return plan_with_llm(request), f"Gemini {MODEL}"
+    return plan_with_rules(request), "규칙 기반 파서(모의)"
+
+
 # ------------------------------------------------------------------ 2. 검증 (가드레일)
 def inside_sandbox(rel):
-    return (SANDBOX / rel).resolve().is_relative_to(SANDBOX.resolve())
+    return isinstance(rel, str) and (SANDBOX / rel).resolve().is_relative_to(SANDBOX.resolve())
 
 
 def validate(plan):
@@ -93,7 +107,8 @@ def validate(plan):
         for key in ("path", "src", "dst", "pattern"):
             if key in step and not inside_sandbox(step[key]):
                 errors.append(f"{i}번: 작업 폴더 밖 경로 '{step[key]}'")
-        if action == "rename_prefix" and re.search(r"[\\/:*?\"<>|]", step.get("prefix", "")):
+        prefix = step.get("prefix", "")
+        if action == "rename_prefix" and (not isinstance(prefix, str) or re.search(r"[\\/:*?\"<>|]", prefix)):
             errors.append(f"{i}번: 접두어에 사용할 수 없는 문자")
     return errors
 
@@ -124,6 +139,19 @@ def execute(plan, apply):
     return changes
 
 
+def apply_plan(plan, source):
+    """검증을 다시 통과한 계획만 실제로 실행하고 로그를 남긴다."""
+    errors = validate(plan)
+    if errors:
+        raise ValueError("; ".join(errors))
+    changes = execute(plan, apply=False)
+    if changes:
+        execute(plan, apply=True)
+        with LOG.open("a", encoding="utf-8") as log:
+            log.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {source}\n" + "".join(f"  {c}\n" for c in changes))
+    return changes
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("request", nargs="?", help="자연어 지시")
@@ -139,9 +167,7 @@ def main():
     if args.plan:
         plan, source = json.loads(Path(args.plan).read_text(encoding="utf-8")), f"파일 {args.plan}"
     elif args.request:
-        use_llm = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-        plan = plan_with_llm(args.request) if use_llm else plan_with_rules(args.request)
-        source = f"Gemini {MODEL}" if use_llm else "규칙 기반 파서(모의)"
+        plan, source = make_plan(args.request)
     else:
         parser.error("자연어 지시 또는 --plan 이 필요합니다")
 
@@ -157,10 +183,8 @@ def main():
     print("■ 미리보기 (dry-run)" if not args.yes else "■ 실행")
     print("\n".join(f"  {c}" for c in changes) or "  변경 사항 없음")
     if args.yes and changes:
-        execute(plan, apply=True)
-        with LOG.open("a", encoding="utf-8") as log:
-            log.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} {source}\n" + "".join(f"  {c}\n" for c in changes))
-        print(f"\n완료. 로그: {LOG.name} / 현재 폴더: {sorted(str(p.relative_to(SANDBOX)) for p in SANDBOX.rglob('*'))}")
+        apply_plan(plan, source)
+        print(f"\n완료. 로그: {LOG.name} / 현재 폴더: {list_files()}")
     elif changes:
         print("\n실제로 실행하려면 --yes 를 붙이세요.")
 

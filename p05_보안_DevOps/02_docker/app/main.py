@@ -1,8 +1,15 @@
-"""방문자 카운터 API — Redis가 있으면 Redis에, 없으면 메모리에 저장."""
+"""방문자 카운터 — Redis가 있으면 Redis에, 없으면 메모리에 저장.
+
+  /           : 브라우저 화면 (index.html)
+  /api/visit  : 방문 수 +1 후 JSON 반환 (curl 용)
+  /health     : 헬스체크 (Docker HEALTHCHECK, Kubernetes 프로브)
+"""
 import os
 import socket
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="Visit Counter")
 APP_VERSION = os.getenv("APP_VERSION", "v1")
@@ -27,6 +34,13 @@ else:
 
 @app.get("/")
 def index():
+    return FileResponse(Path(__file__).parent / "index.html")
+
+
+@app.get("/api/visit")
+def visit(response: Response):
+    # 요청마다 연결을 끊어 다음 요청이 새 연결이 되게 함 → 쿠버네티스에서 여러 Pod로 분산되는 모습이 보임
+    response.headers["Connection"] = "close"
     return {"message": GREETING, "visits": incr(), "backend": backend,
             "version": APP_VERSION, "hostname": socket.gethostname()}  # hostname = 컨테이너/Pod 이름
 
